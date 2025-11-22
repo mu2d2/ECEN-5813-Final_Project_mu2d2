@@ -1,0 +1,10 @@
+# Ignore Debug and Release build output folders
+Debug/
+Release/
+**/Debug/
+**/Release/
+**/.vscode/
+Final_Project_WaterPlant Release.launch
+Final_Project_WaterPlant Debug.launch
+.settings/com.st.stm32cube.ide.mcu.sfrview.prefs
+.settings/language.settings.xml
