@@ -42,9 +42,6 @@ int main(void)
 	reset_timer(TIMER_START_ULED_ID);//starts timer
 	for(;;)
 	{
-		estop_handler();//checks for estop button and sets state machine
-		first_entry();//checks for first entry into state and resets elapsed timer in a new state
-		state_logic();//executes state logic with timers and brightness levels and blinking
-		updateBusState();//updates state to next state
+
 	}
 }
