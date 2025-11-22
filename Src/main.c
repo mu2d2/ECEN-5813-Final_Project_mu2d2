@@ -39,7 +39,6 @@ int main(void)
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer
-	reset_timer(TIMER_START_ELED_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
 	for(;;)
 	{
