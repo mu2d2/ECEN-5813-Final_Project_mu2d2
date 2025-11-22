@@ -33,19 +33,22 @@ int main(void)
 	/* Initialization */
 	init_uled();
 	init_systick();
-	init_led_status();
 	set_uled(OFF);
 	
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer
-	reset_timer(TIMER_START_ELED_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
+	uint8_t blink = 0;
+	ticktime_t local_timer = 0;
 	for(;;)
 	{
-		estop_handler();//checks for estop button and sets state machine
-		first_entry();//checks for first entry into state and resets elapsed timer in a new state
-		state_logic();//executes state logic with timers and brightness levels and blinking
-		updateBusState();//updates state to next state
+		local_timer = get_timer(TIMER_START_ULED_ID);
+		if(local_timer == ONE_SECOND_TICKS)
+		{
+			blink = !blink;//toggle uled flag
+			reset_timer(TIMER_START_ULED_ID);//reset timer reference
+			set_uled(blink);//toggle uled flag
+		}
 	}
 }

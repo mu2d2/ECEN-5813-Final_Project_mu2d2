@@ -119,25 +119,6 @@ void init_uled(void)
 	MODIFY_FIELD(ULED_GPIO_PORT->MODER, GPIO_MODER_MODER5, ESF_GPIO_MODER_OUTPUT);//configures PA5 aka ld2 aka ULED into output mode 01 -> 1
 }
 
-/*
- * set ELED function
- * @param state ON or OFF
- * @return no return function
- * 
- * Reference : Reference Manual RM0091 Chapter 8, Section 8.4.7
- * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 2 General-​Purpose Input/​Output, Page No. 46
- */
-void set_eled(uint8_t state)
-{
-	if(state)
-	{
-		ELED_GPIO_PORT->BSRR |= ELED_ON_MSK;//turns on ELED
-	}
-	else
-	{
-		ELED_GPIO_PORT->BSRR |= ELED_OFF_MSK;//turns off ELED
-	}
-}
 
 /*
  * set ULED function
@@ -159,70 +140,3 @@ void set_uled(uint8_t state)
 	}
 }
 
-/*
- * initializes button function
- * enabling gpio port and #bit to be an output
- * @param none using registers
- * @return none
- * 
- * Reference : Reference Manual RM0091 Chapter 8, Section 8.4.7
- * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 2 General-​Purpose Input/​Output, Page No. 46
- * Reference PES 10 F091RC and GPIO pt2.pdf
- */
-void init_button(void)
-{
-	RCC->AHBENR |= RCC_AHBENR_GPIOCEN;//enables periph clock of GPIOC for switch B1
-	MODIFY_FIELD(BUTTON_GPIO_PORT->MODER, GPIO_MODER_MODER13, ESF_GPIO_MODER_INPUT);//configures P13 into input mode 00 -> 0
-}
-
-/*
- * get button switch state function
- * @param none using registers
- * @return button pressed (1) or not (0)
- * 
- * Reference : Reference Manual RM0091 Chapter 8, Section 8.4.7
- * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 2 General-​Purpose Input/​Output, Page No. 46
- * Reference PES 10 F091RC and GPIO pt2.pdf
- */
-uint8_t get_button_state(void)
-{
-	return !(BUTTON_IDR & BUTTON_IDR_MSK);//not because button press causes expression to evaluate to 0
-}
-
-/*
-* sets static brightness level that is used by PWM TIMER for ELED brightness
-* or turns on/off uled 
-* @param uint16_t value to update pwm brightness level
-* @return none
-* Reference: none
-*/
-void set_brightness_scale(uint16_t value, uint8_t led_identity)
-{
-	if(led_identity == ELED_IDENTITY)
-	{
-		brightness_scale = value;
-	}
-	if(led_identity == ULED_IDENTITY)
-	{
-		if(value == OFF)
-		{
-			set_uled(OFF);		
-		}
-		else//any other positive values will KEEP ULED ON
-		{
-			set_uled(ON);
-		}
-	}
-	
-}
-
-/*
-* gets static brightness level that is used by PWM TIMER for ELED brightness 
-* @param none
-* @return uint16_t value to update pwm brightness level
-* Reference: none
-*/
-uint16_t get_brightness_scale(void)
-{
-	return brightness_scale;
-}

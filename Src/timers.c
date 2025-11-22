@@ -16,7 +16,6 @@
 //TIMER VARIABLES
 static ticktime_t total_ticks = 0;//SysTick Counter every interrupt which is every 20Hz aka 50ms
 ticktime_t timer_start;//relative timer start marker
-ticktime_t eled_timer_start;//relative timer start marker for blink sequence control for eled
 ticktime_t uled_timer_start;//relative timer start marker for blink seq control for uled
 
 /*
@@ -38,8 +37,8 @@ void init_systick(void)
     //  use core clock 48MHz dont need to go to alt clk src Enable interrupt, enable SysTick timer
     SysTick->CTRL = SysTick_CTRL_CLKSOURCE_Msk | SysTick_CTRL_TICKINT_Msk | SysTick_CTRL_ENABLE_Msk;
     
-    timer_start = total_ticks;//initalizes start timers
-    eled_timer_start = total_ticks;
+    //initalizes start timers
+    timer_start = total_ticks;
     uled_timer_start = total_ticks;
 }
 
@@ -80,8 +79,6 @@ void reset_timer(uint8_t timer)
         case TIMER_START_ID:
             timer_start = now();
             break;
-        case TIMER_START_ELED_ID:
-            eled_timer_start = now();
             break;
         case TIMER_START_ULED_ID:
             uled_timer_start = now();
@@ -105,8 +102,6 @@ ticktime_t get_timer(uint8_t timer)
     {
         case TIMER_START_ID:
             return (now() - timer_start);
-        case TIMER_START_ELED_ID:
-            return (now() - eled_timer_start);
         case TIMER_START_ULED_ID:
             return (now() - uled_timer_start);
         default:
