@@ -16,8 +16,10 @@
 #define TICKTIME_MS (50U)
 #define TICKMS_CONV(x) (x/TICKTIME_MS)//macro for determining ticks per ms
 
+#define ONE_SECOND (1000)
+#define ONE_SECOND_TICKS (TICKMS_CONV(ONE_SECOND))
+
 #define TIMER_START_ID (0)//timer start marker
-#define TIMER_START_ELED_ID (1)// eled timer start marker
 #define TIMER_START_ULED_ID (2)// uled timer start marker
 
 typedef uint32_t ticktime_t;//time since boot, in 50ms increments
