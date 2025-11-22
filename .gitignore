@@ -4,6 +4,7 @@ Release/
 **/Debug/
 **/Release/
 **/.vscode/
+Final_Project_WaterPlant.launch
 Final_Project_WaterPlant Release.launch
 Final_Project_WaterPlant Debug.launch
 .settings/com.st.stm32cube.ide.mcu.sfrview.prefs
