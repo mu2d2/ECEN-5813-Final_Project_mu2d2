@@ -8,11 +8,7 @@
  */
  #include "gpio.h"
 
- //button is connected to PORTC pin 13
-#define BUTTON_GPIO_PORT (GPIOC)//GPIO PORT with button
-#define BUTTON_PIN (13)//pin number
-#define BUTTON_IDR_MSK (GPIO_IDR_13)//button input mask
-#define BUTTON_IDR (GPIOC->IDR)//button GPIO port IDR
+#define F_TIM_CLOCK (48000000L)	// 48 MHz sys clk
 
 //ULED is connected to PORTA pin 5
 #define ULED_GPIO_PORT (GPIOA)//GPIO Port with LD2
@@ -20,23 +16,31 @@
 #define ULED_OFF_MSK (GPIO_BSRR_BR_5) // ULED off mask
 #define ULED_ON_MSK (GPIO_BSRR_BS_5) // ULED on mask
 
-//ELED is connected to PORTA pin 7
-#define ELED_GPIO_PORT (GPIOA)//GPIO Port with connection to ELED
-#define ELED_PIN (7)//ELED is PA7
-#define ELED_OFF_MSK (GPIO_BSRR_BS_7) // ELED off mask
-#define ELED_ON_MSK (GPIO_BSRR_BR_7) // ELED on mask
+//SERVO is connected to PORTA pin 7
+#define SERVO_GPIO_PORT (GPIOA)//GPIO Port with connection to SERVO
+#define SERVO_PIN (7)//SERVO is PA7
+#define SERVO_OFF_MSK (GPIO_BSRR_BS_7) // SERVO off mask
+#define SERVO_ON_MSK (GPIO_BSRR_BR_7) // SERVO on mask
 
-//PWM defines
+//SERVO PWM defines
 #define PWM_TIMER (TIM3)
-#define F_TIM_CLOCK (48000000L)	// 48 MHz
-#define PWM_FREQUENCY (500)
-#define PWM_PRESCALER (2)
-#define PWM_MAX_DUTY_VALUE ( (F_TIM_CLOCK / (PWM_FREQUENCY * PWM_PRESCALER)) - ON)
 #define PWM_MODE (6)
-#define MAX_BRIGHTNESS (0xFF)
+#define SERVO_PWM_FREQUENCY (50)//50 Hz servo control
+#define PWM_PRESCALER (48)// want 1MHz clk for timer
+#define PWM_TIMER_FREQ (F_TIM_CLOCK / PWM_PRESCALER)// 1us timer frequency
+#define SERVO_PWM_PERIOD (PWM_TIMER_FREQ / SERVO_PWM_FREQUENCY)//20000ticks aka 20ms for servo
+#define CCR_STEP_SIZE (10)//increases speed of servo
+
+//SERVO angle defines
+#define SERVO_MIN_US (500) // 0 degrees pulse width
+#define SERVO_MAX_US (2500) // 270 degrees pulse width
+#define SERVO_NEUTRAL_POS (1500)
+#define MIN_SERVO_ANGLE (0) // 0 degrees
+#define MAX_SERVO_ANGLE (270) // 270 degrees
 
 //PWM VARIABLES
-volatile uint16_t brightness_scale = 0;//PWM brightness level of ELED, volatile so interrupts can update value
+volatile uint16_t current_ccr = SERVO_NEUTRAL_POS; //current position of servo
+volatile uint16_t target_ccr = SERVO_NEUTRAL_POS; // target position of servo
 
 /*
 * Initializes gpio port peripheral and configures TIMER3 and channel 2 counter
@@ -44,25 +48,27 @@ volatile uint16_t brightness_scale = 0;//PWM brightness level of ELED, volatile 
 * @return none
 * Reference: Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 7 Timers, Page No. 232
 */
-void init_PWM_eled(void)
+void init_PWM_SERVO(void)
 {
 	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;//enable periph clock of gpioA
-	MODIFY_FIELD(ELED_GPIO_PORT->MODER, GPIO_MODER_MODER7, ESF_GPIO_MODER_ALT_FUNC);//configures PA7 aka ELED into alt func mode 10 -> 2
-	MODIFY_FIELD(ELED_GPIO_PORT->AFR[OFF], GPIO_AFRL_AFRL7, ON);//sets to AF1 for TIM3_CH2
+	MODIFY_FIELD(SERVO_GPIO_PORT->MODER, GPIO_MODER_MODER7, ESF_GPIO_MODER_ALT_FUNC);//configures PA7 aka SERVO into alt func mode 10 -> 2
+	MODIFY_FIELD(SERVO_GPIO_PORT->AFR[OFF], GPIO_AFRL_AFRL7, ON);//sets to AF1 for TIM3_CH2
 
 	// Configure TIM3 counter and prescaler
 	RCC->APB1ENR |= RCC_APB1ENR_TIM3EN;
-	PWM_TIMER->PSC = PWM_PRESCALER - ON;//prescaler
-	PWM_TIMER->ARR = PWM_MAX_DUTY_VALUE;//load-reload set to duty val
-	PWM_TIMER->CR1 = 0; // count up
+	PWM_TIMER->PSC = PWM_PRESCALER - 1;//prescaler
+	PWM_TIMER->ARR = SERVO_PWM_PERIOD - 1;//load-reload set to 20ms aka 19999
+	PWM_TIMER->CR1 = 0; // clear CR1 and set to count up
+	PWM_TIMER->CR1 |= TIM_CR1_ARPE;  // enable auto-reload preload
 
 	// Configure TIM3 channel 2	
 	PWM_TIMER->CCR2 = ON;				// Short on-time by default
-	PWM_TIMER->CCER |= TIM_CCER_CC2P;	// active low polarity 
 	MODIFY_FIELD(PWM_TIMER->CCMR1, TIM_CCMR1_OC2M, PWM_MODE); // Select PWM mode
+	PWM_TIMER->CCER &= ~TIM_CCER_CC2P;   // active-high polarity for PWM
 	PWM_TIMER->CCMR1 |= TIM_CCMR1_OC2PE;	// Enable preload register
 	PWM_TIMER->EGR |= TIM_EGR_UG;		// Generate update
 	PWM_TIMER->CCER |= TIM_CCER_CC2E; 	// Enable channel output on OC2	
+	PWM_TIMER->CCR2 =  SERVO_NEUTRAL_POS; //neutral position
 	PWM_TIMER->BDTR |= TIM_BDTR_MOE;		// Enable main output
 	
 	//Configure TIM3 Interrupt
@@ -73,35 +79,41 @@ void init_PWM_eled(void)
 }
 
 /*TIMER3 Interrupt Service Routine
-* PWM of ELED, sets to brightness variable
+* PWM of SERVO
 * @param none
 * @return none
 * Reference:
 */
 void TIM3_IRQHandler(void)
 {
-	if(PWM_TIMER->SR & TIM_SR_UIF)//checks if timer triggered an event aka 500Hz
+	if(PWM_TIMER->SR & TIM_SR_UIF)//checks if timer triggered an event aka 50Hz
 	{
 		PWM_TIMER->SR &= ~TIM_SR_UIF;//resets update interrupt flag
 
-		uint16_t brightness = (PWM_MAX_DUTY_VALUE * brightness_scale)/MAX_BRIGHTNESS;//adjusts 0x0 - 0xFF scale to 0x0 - PWM_MAX_DUTY_VALUE scale without changing PWM configuration
-		PWM_TIMER->CCR2 = brightness;//update brightness
-	}
-}
+		if(current_ccr != target_ccr)//checks if servo needs to move
+        {
+			//increment/decrement to the target position
+			//clamps value to target_ccr
+            if(current_ccr < target_ccr)
+			{
+				current_ccr+=CCR_STEP_SIZE;
+				if(current_ccr > target_ccr)
+				{
+					current_ccr = target_ccr;
+				}
+			} 
+            else if(current_ccr > target_ccr)
+			{
+				current_ccr-=CCR_STEP_SIZE;
+				if(current_ccr < target_ccr)
+				{
+					current_ccr = target_ccr;
+				}
+			} 
 
-/*
- * initializes eled function
- * enabling gpio port and #bit to be an output
- * @param none using registers
- * @return none
- * 
- * Reference : Reference Manual RM0091 Chapter 8, Section 8.4.7
- * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 2 General-​Purpose Input/​Output, Page No. 46
- */
-void init_eled(void)
-{
-	RCC->AHBENR |= RCC_AHBENR_GPIOAEN;//enable periph clock of gpioA
-	MODIFY_FIELD(ELED_GPIO_PORT->MODER, GPIO_MODER_MODER7, ESF_GPIO_MODER_OUTPUT);//configures PA7 aka ELED into output mode 01 -> 1
+            PWM_TIMER->CCR2 = current_ccr;//update compare register value
+        }
+	}
 }
 
 /*
@@ -132,11 +144,61 @@ void set_uled(uint8_t state)
 {
 	if(state)
 	{
-		ULED_GPIO_PORT->BSRR |= ULED_ON_MSK;//turns on ELED
+		ULED_GPIO_PORT->BSRR |= ULED_ON_MSK;//turns on ULED
 	}
 	else
 	{
-		ULED_GPIO_PORT->BSRR |= ULED_OFF_MSK;//turns off ELED
+		ULED_GPIO_PORT->BSRR |= ULED_OFF_MSK;//turns off ULED
 	}
 }
 
+/*
+ * set SERVO function
+ * @param state ON or OFF
+ * @return no return function
+ * 
+ * Reference : Reference Manual RM0091 Chapter 8, Section 8.4.7
+ * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 2 General-​Purpose Input/​Output, Page No. 46
+ */
+void set_servo(uint8_t state)
+{
+	if(state)
+	{
+		SERVO_GPIO_PORT->BSRR |= SERVO_ON_MSK;//turns on SERVO
+	}
+	else
+	{
+		SERVO_GPIO_PORT->BSRR |= SERVO_OFF_MSK;//turns off SERVO
+	}
+}
+
+/*
+ * @param 
+ * @return 
+ * 
+ */
+uint16_t servo_angle_to_ccr(uint16_t angle)
+{
+	//clamp values
+    if(angle < MIN_SERVO_ANGLE)
+	{
+		angle = MIN_SERVO_ANGLE;
+	}   
+    if(angle > MAX_SERVO_ANGLE)
+	{
+		angle = MAX_SERVO_ANGLE;
+	} 
+
+    return SERVO_MIN_US + (angle * (SERVO_MAX_US - SERVO_MIN_US)) / MAX_SERVO_ANGLE;//return converted ccr value
+}
+
+/*
+ * @param 
+ * @return 
+ * 
+ */
+void servo_set_angle(uint16_t angle)
+{
+	//set new position by updating ccr value
+	target_ccr = servo_angle_to_ccr(angle);
+}
