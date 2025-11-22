@@ -32,15 +32,12 @@ int main(void)
 
 	/* Initialization */
 	init_uled();
-	init_button();
 	init_systick();
-	init_PWM_eled();
 	init_led_status();
 	set_uled(OFF);
 	
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
-	LOG("BUS AT BOULDER\r\n");//starting bus position
 	reset_timer(TIMER_START_ID);//starts timer
 	reset_timer(TIMER_START_ELED_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
