@@ -8,10 +8,8 @@
 
 #ifndef TIMERS_H
 #define TIMERS_H
-#include <stm32f091xc.h>
-#include <utilities.h>
-#include "core_cm0.h"//include for sysTick
 #include "log.h"//include for debug logging
+#include <stdint.h>
 
 #define TICKTIME_MS (50U)
 #define TICKMS_CONV(x) (x/TICKTIME_MS)//macro for determining ticks per ms

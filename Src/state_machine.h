@@ -8,8 +8,6 @@
 
 #ifndef STATE_MACHINE_H
 #define STATE_MACHINE_H
-#include "timers.h"//for timer access
-#include "gpio.h"//for setting uled access
 #include "log.h"//debug 
 
 /*

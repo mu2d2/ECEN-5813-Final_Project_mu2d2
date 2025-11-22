@@ -7,7 +7,9 @@
 */
 
 #include "timers.h"
-
+#include <stm32f091xc.h>
+#include <utilities.h>
+#include "core_cm0.h"//include for sysTick
 //SYS TICK definitions
 #define F_SYS_CLK (48000000L)//sys clock at 48MHz
 #define TICK_TIME_CLK (20U)// to measure 1 timer tick as 50ms, need 20Hz interrupt

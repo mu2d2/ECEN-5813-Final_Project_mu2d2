@@ -32,6 +32,7 @@ int main(void)
 
 	/* Initialization */
 	init_uled();
+	init_PWM_SERVO();
 	init_systick();
 	set_uled(OFF);
 	
@@ -39,16 +40,21 @@ int main(void)
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
-	uint8_t blink = 0;
+	uint8_t blink = 0, test = 0;
 	ticktime_t local_timer = 0;
 	for(;;)
 	{
 		local_timer = get_timer(TIMER_START_ULED_ID);
-		if(local_timer == ONE_SECOND_TICKS)
+		if(local_timer >= ONE_SECOND_TICKS)//1second interrupt
 		{
 			blink = !blink;//toggle uled flag
 			reset_timer(TIMER_START_ULED_ID);//reset timer reference
 			set_uled(blink);//toggle uled flag
+		}
+		if(!test)
+		{
+			servo_set_angle(270);
+			test = !test;
 		}
 	}
 }
