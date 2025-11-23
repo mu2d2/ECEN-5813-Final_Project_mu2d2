@@ -1,12 +1,14 @@
 /**
  ******************************************************************************
- * @file           : gpio.h
+ * @file           : pwm.c
  * @author         : Muthuu SVS
  * @brief          : functions that manipulate the gpio, initializing registers
- *  for buttons, Leds, and setting buttons, and contains PWM initialization and interrupt handler
+ *  for leds, and contains PWM initialization and interrupt handler for servo motor
  ******************************************************************************
  */
- #include "gpio.h"
+ #include "pwm.h"
+ #include <stm32f091xc.h>
+ #include "log.h"
 
 #define F_TIM_CLOCK (48000000L)	// 48 MHz sys clk
 
@@ -172,9 +174,9 @@ void set_servo(uint8_t state)
 	}
 }
 
-/*
- * @param 
- * @return 
+/* converts angle to ccr value for servo positioning
+ * @param uint16_t angle desired angle between 0 and 270 degrees
+ * @return uint16_t converted ccr value for servo positioning
  * 
  */
 uint16_t servo_angle_to_ccr(uint16_t angle)
@@ -189,13 +191,15 @@ uint16_t servo_angle_to_ccr(uint16_t angle)
 		angle = MAX_SERVO_ANGLE;
 	} 
 
+	//converts to angle to ccr value range
     return SERVO_MIN_US + (angle * (SERVO_MAX_US - SERVO_MIN_US)) / MAX_SERVO_ANGLE;//return converted ccr value
 }
 
-/*
- * @param 
- * @return 
- * 
+
+/* sets the position of the servo motors based on angle input
+ * assigns the target_ccr variable to the converted angle value
+ * @param uint16_t angle desired angle between 0 and 270 degrees
+ * @return none
  */
 void servo_set_angle(uint16_t angle)
 {

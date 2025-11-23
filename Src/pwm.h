@@ -1,15 +1,14 @@
 /**
  ******************************************************************************
- * @file           : gpio.h
+ * @file           : pwm.h
  * @author         : Muthuu SVS
  * @brief          : functions that manipulate the gpio, initializing registers
- *  for buttons, Leds, and setting buttons, and contains PWM initialization and interrupt handler
+ *  for leds, and contains PWM initialization and interrupt handler for servo motor
  ******************************************************************************
  */
 
-#ifndef GPIO_H
-#define GPIO_H
-#include <stm32f091xc.h>
+#ifndef PWM_H
+#define PWM_H
 #include <utilities.h>
 
 //defines used for ledIdentity
@@ -53,10 +52,10 @@ void set_servo(uint8_t state);
 */
 void init_PWM_SERVO(void);
 
-/*
- * @param 
- * @return 
- * 
+/* sets the position of the servo motors based on angle input
+ * assigns the target_ccr variable to the converted angle value
+ * @param uint16_t angle desired angle between 0 and 270 degrees
+ * @return none
  */
 void servo_set_angle(uint16_t angle);
 

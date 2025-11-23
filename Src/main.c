@@ -15,9 +15,9 @@
  *
  ******************************************************************************
  */
-#include "gpio.h"
+#include "pwm.h"//servo and uled control
 #include "timers.h"//timing 
-#include "state_machine.h"//state_machine functions and #defines
+#include "state_machine.h"//state_machine control of Application
 #include "log.h"//debug 
 
 int main(void)

@@ -2,7 +2,7 @@
  ******************************************************************************
 * @file           : timers.h
 * @author         : Muthuu SVS
-* @brief          : Timers, SysTick initialization, and API to timer system
+* @brief          : relative timers, SysTick initialization, and API to timer system
 ******************************************************************************
 */
 
