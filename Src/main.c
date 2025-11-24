@@ -16,6 +16,7 @@
  ******************************************************************************
  */
 #include "pwm.h"//servo and uled control
+#include "adc.h"//adc control
 #include "timers.h"//timing 
 #include "state_machine.h"//state_machine control of Application
 #include "log.h"//debug 

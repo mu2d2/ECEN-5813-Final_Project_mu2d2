@@ -10,8 +10,6 @@
  #include <stm32f091xc.h>
  #include "log.h"
 
-#define F_TIM_CLOCK (48000000L)	// 48 MHz sys clk
-
 //ULED is connected to PORTA pin 5
 #define ULED_GPIO_PORT (GPIOA)//GPIO Port with LD2
 #define ULED_PIN (5U)//ULED is PA5
