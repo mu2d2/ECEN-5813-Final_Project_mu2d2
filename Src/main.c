@@ -16,10 +16,14 @@
  ******************************************************************************
  */
 #include "pwm.h"//servo and uled control
-#include "adc.h"//adc control
 #include "timers.h"//timing 
 #include "state_machine.h"//state_machine control of Application
 #include "log.h"//debug 
+#include "adc.h"//adc control
+
+//#define SERVO
+#define SOIL_SENSOR
+//#define LCD
 
 int main(void)
 {
@@ -35,13 +39,22 @@ int main(void)
 	init_uled();
 	init_PWM_SERVO();
 	init_systick();
+	init_ADC();
+	init_TIM15();
+	calculate_adc_timer_arr(10);  // 10 Hz sampling rate
+	
+
 	set_uled(OFF);
 	
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
-	uint8_t blink = 0, test = 0;
+	uint8_t blink = 0;
+#ifdef SERVO
+	uint8_t test  = 0;
+#endif
+	uint32_t soil_moisture_cur = 0, soil_moisture_next = 0;
 	ticktime_t local_timer = 0;
 	for(;;)
 	{
@@ -52,10 +65,20 @@ int main(void)
 			reset_timer(TIMER_START_ULED_ID);//reset timer reference
 			set_uled(blink);//toggle uled flag
 		}
+#ifdef SERVO
 		if(!test)
 		{
 			servo_set_angle(270);
 			test = !test;
 		}
+#endif
+#ifdef SOIL_SENSOR
+		soil_moisture_next = get_soil_moisture_value();//get latest soil moisture value
+		if(soil_moisture_next != soil_moisture_cur)//if value has changed, log it
+		{
+			soil_moisture_cur = soil_moisture_next;
+			LOG("Soil Moisture Value: %lu\r\n", soil_moisture_cur);
+		}
+#endif
 	}
 }

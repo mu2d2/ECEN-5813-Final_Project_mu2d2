@@ -8,6 +8,8 @@
 
 #include "state_machine.h"
 #include "timers.h"//for timer access
-#include "gpio.h"//for setting uled access
+#include "pwm.h"//for setting uled access and servo control
+#include "adc.h"//sensor reading
+
 
 

@@ -24,7 +24,7 @@
 #define SOIL_SENSOR_CHANNEL (0) //ADC1_IN0
 
 //file scope variables
-volatile uint16_t soil_moisture_value = 0;
+volatile uint32_t soil_moisture_value = 0;
 volatile uint32_t adc_timer_sample_rate = 0;
 
  /*
@@ -55,6 +55,7 @@ void init_ADC(void)
     MODIFY_FIELD(ADC1->CFGR2, ADC_CFGR2_CKMODE, 0);
     // Init ADCl
     MODIFY_FIELD(ADC1->SMPR, ADC_SMPR_SMP, 0); // SMP = 000 for minimum sample time
+
     /* CFGR1: The default configuration (CFGR1 = 0) matches what we want:
         some features are disabled (analog watchdog, discontinous conversion
         mode, auto-off mode, wait conversion mode, continuous conversion mode,
@@ -64,7 +65,6 @@ void init_ADC(void)
     ADC1->CFGR1 |= (0b011 << ADC_CFGR1_EXTSEL_Pos); //select TIM15_TRGO event as external trigger
     ADC1->CFGR1 |= ADC_CFGR1_EXTEN_0;//rising edge 
 
-    init_TIM15();//initialize timer 15 for adc triggering
     // Select ADC channel to convert
     ADC1->CHSELR = ADC_CHSELR_CHSEL0; // Select ADC input channel 0
     // Enable ADC (from STM32F0 Reference Manual, A.7.2
@@ -80,6 +80,9 @@ void init_ADC(void)
     { /* (4) Wait until ADC ready */
     /* For robust implementation, add here time-out management */
     }
+
+    // Start ADC external-trigger conversions
+    ADC1->CR |= ADC_CR_ADSTART;
 }
 
  /*
@@ -96,7 +99,7 @@ void init_TIM15(void)
     RCC->APB2ENR |= RCC_APB2ENR_TIM15EN;
     // Configure TIM15 for triggering ADC at regular intervals
     ADC_TIMER->PSC = ADC_TIMER_PRESCALER; // Prescaler value 
-    ADC_TIMER->ARR = 1000; // temp arr value, will be updated later
+    ADC_TIMER->ARR = 10000; // temp arr value, will be updated later
     
     ADC_TIMER->CR2 &= ~TIM_CR2_MMS; // Clear MMS bits
     ADC_TIMER->CR2 |= TIM_CR2_MMS_1; // Update event as trigger output (TRGO)
@@ -145,7 +148,7 @@ void ADC1_COMP_IRQHandler(void)
  * @return uint16_t soil_moisture_value
  * Reference : 
  */
-uint16_t get_soil_moisture_value(void)
+uint32_t get_soil_moisture_value(void)
 {
     return soil_moisture_value;
 }

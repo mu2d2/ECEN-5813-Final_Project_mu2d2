@@ -7,8 +7,8 @@
  ******************************************************************************
  */
 
-#ifndef PWM_H
-#define PWM_H
+#ifndef ADC_H
+#define ADC_H
 #include <utilities.h>
 
 /*
@@ -52,6 +52,6 @@ void calculate_adc_timer_arr(uint32_t sample_rate);
  * @return uint16_t soil_moisture_value
  * Reference : 
  */
-uint16_t get_soil_moisture_value(void);
+uint32_t get_soil_moisture_value(void);
 
 #endif /* ADC_H */
