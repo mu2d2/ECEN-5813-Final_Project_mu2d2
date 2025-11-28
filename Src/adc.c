@@ -13,10 +13,6 @@
 
 //ADC defines
 
-//TIMER 15 defines
-#define ADC_TIMER (TIM15)
-#define ADC_TIMER_PRESCALER (48 - 1)
-#define ADC_TIMER_CLK_HZ (F_TIM_CLOCK / (ADC_TIMER_PRESCALER + 1))// 1 MHz clk
 
 //SOIL MOISTURE SENSOR defines
 #define SOIL_SENSOR_PORT (GPIOA)
@@ -25,7 +21,6 @@
 
 //file scope variables
 volatile uint16_t soil_moisture_value = 0;
-volatile uint16_t adc_timer_sample_rate = 0;
 
  /*
  * initializes ADC1 for Soil Moisture Sensor
@@ -87,76 +82,14 @@ void init_ADC(void)
     { /* (1) Ensure that ADRDY = 0 */
         ADC1->ISR |= ADC_ISR_ADRDY; /* (2) Clear ADRDY */
     }
-    //ADC1->IER |= ADC_IER_EOCIE; /* Enable end of conversion interrupt */
-    //NVIC_EnableIRQ(ADC1_COMP_IRQn); // Enable ADC interrupt in NVIC
 
     ADC1->CR |= ADC_CR_ADEN; /* (3) Enable the ADC */
     while ((ADC1->ISR & ADC_ISR_ADRDY) == 0) 
     { /* (4) Wait until ADC ready */
     /* For robust implementation, add here time-out management */
     }
-
-    // Start ADC external-trigger conversions
-    ADC1->CR |= ADC_CR_ADSTART;
 }
 
- /*
- * initializes TIMER15 for ADC triggered sampling
- * @param none using registers
- * @return none
- * Reference : 
- * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, 
- * Chapter: 7 Timers, Page No. 212
- */
-void init_TIM15(void)
-{
-    // Enable peripheral clock of TIM15
-    RCC->APB2ENR |= RCC_APB2ENR_TIM15EN;
-    // Configure TIM15 for triggering ADC at regular intervals
-    ADC_TIMER->PSC = ADC_TIMER_PRESCALER; // Prescaler value 
-    ADC_TIMER->ARR = 10000; // temp arr value, will be updated later
-    
-    ADC_TIMER->CR2 &= ~TIM_CR2_MMS; // Clear MMS bits
-    ADC_TIMER->CR2 |= TIM_CR2_MMS_1; // Update event as trigger output (TRGO)
-    ADC_TIMER->CR1 |= TIM_CR1_CEN; // Enable TIM15
-}
-
-/* sets the ARR value for ADC timer
- * @param uint32_t arr_value
- * @return none
- * Reference : 
- */
-void set_adc_timer_arr(uint16_t arr_value)
-{
-    ADC_TIMER->ARR = arr_value;
-}
-
-/* calculates and sets the ARR value for ADC timer based on desired sample rate
- * @param uint32_t sample_rate in Hz 
- * @return none
- * set file scoped variable adc_timer_sample_rate
- * Reference : 
- */
-void calculate_adc_timer_arr(uint16_t sample_rate)
-{
-    uint16_t arr_value = (ADC_TIMER_CLK_HZ / sample_rate) - 1;
-    set_adc_timer_arr(arr_value);
-    adc_timer_sample_rate = sample_rate;
-}
-
-/* ADC1 interrupt handler to convert data to soil_moisture_value
- * @param none 
- * @return none
- * Reference : 
- */
-void ADC1_COMP_IRQHandler(void)
-{
-    if ((ADC1->ISR & ADC_ISR_EOC) != 0)
-    {
-        // Read the converted value
-        soil_moisture_value = ADC1->DR; // Reading DR clears EOC flag
-    }
-}
 
 /* returns the latest soil moisture sensor value
  * @param none 
@@ -168,6 +101,11 @@ uint16_t get_soil_moisture_value(void)
     return soil_moisture_value;
 }
 
+/* returns the latest soil moisture sensor value
+ * @param none 
+ * @return uint16_t soil_moisture_value
+ * Reference : 
+ */
 uint16_t adc_manual_sample(void)
 {
     if(ADC1->ISR & ADC_ISR_EOC)
