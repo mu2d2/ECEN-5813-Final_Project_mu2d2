@@ -17,6 +17,9 @@
 #define ONE_SECOND (1000)
 #define ONE_SECOND_TICKS (TICKMS_CONV(ONE_SECOND))
 
+#define QUARTER_SECOND_TICKS (TICKMS_CONV(250))
+#define HALF_SECOND_TICKS (TICKMS_CONV(500))
+
 #define TIMER_START_ID (0)//timer start marker
 #define TIMER_START_ULED_ID (2)// uled timer start marker
 

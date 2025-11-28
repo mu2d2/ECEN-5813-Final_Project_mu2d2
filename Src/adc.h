@@ -37,21 +37,23 @@ void init_TIM15(void);
  * @return none
  * Reference : 
  */
-void set_adc_timer_arr(uint32_t arr_value);
+void set_adc_timer_arr(uint16_t arr_value);
 
 /* calculates and sets the ARR value for ADC timer based on desired sample rate
- * @param uint32_t sample_rate in Hz 
+ * @param uint16_t sample_rate in Hz 
  * @return none
  * set file scoped variable adc_timer_sample_rate
  * Reference : 
  */
-void calculate_adc_timer_arr(uint32_t sample_rate);
+void calculate_adc_timer_arr(uint16_t sample_rate);
 
 /* returns the latest soil moisture sensor value
  * @param none 
  * @return uint16_t soil_moisture_value
  * Reference : 
  */
-uint32_t get_soil_moisture_value(void);
+uint16_t get_soil_moisture_value(void);
+
+uint16_t adc_manual_sample(void);
 
 #endif /* ADC_H */

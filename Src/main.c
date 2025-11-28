@@ -54,8 +54,10 @@ int main(void)
 #ifdef SERVO
 	uint8_t test  = 0;
 #endif
-	uint32_t soil_moisture_cur = 0, soil_moisture_next = 0;
+	//uint16_t soil_moisture_cur = 0, soil_moisture_next = 0;
+	uint16_t adc_value = 0;
 	ticktime_t local_timer = 0;
+	ticktime_t local_timer_adc = 0;
 	for(;;)
 	{
 		local_timer = get_timer(TIMER_START_ULED_ID);
@@ -73,12 +75,20 @@ int main(void)
 		}
 #endif
 #ifdef SOIL_SENSOR
-		soil_moisture_next = get_soil_moisture_value();//get latest soil moisture value
+		/*soil_moisture_next = get_soil_moisture_value();//get latest soil moisture value
 		if(soil_moisture_next != soil_moisture_cur)//if value has changed, log it
 		{
 			soil_moisture_cur = soil_moisture_next;
 			LOG("Soil Moisture Value: %lu\r\n", soil_moisture_cur);
+		}*/
+		local_timer_adc = get_timer(TIMER_START_ID);
+		if(local_timer_adc >= QUARTER_SECOND_TICKS)
+		{
+			adc_value = adc_manual_sample();
+			LOG("Soil Moisture Value: %u\r\n", adc_value);
+			reset_timer(TIMER_START_ID);//reset timer reference
 		}
+		
 #endif
 	}
 }

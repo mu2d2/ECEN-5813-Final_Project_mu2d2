@@ -24,8 +24,8 @@
 #define SOIL_SENSOR_CHANNEL (0) //ADC1_IN0
 
 //file scope variables
-volatile uint32_t soil_moisture_value = 0;
-volatile uint32_t adc_timer_sample_rate = 0;
+volatile uint16_t soil_moisture_value = 0;
+volatile uint16_t adc_timer_sample_rate = 0;
 
  /*
  * initializes ADC1 for Soil Moisture Sensor
@@ -51,6 +51,20 @@ void init_ADC(void)
     { /* (3) Wait HSI14 is ready */
     /* For robust implementation, add here time-out management */
     }
+    // Ensure ADC is disabled before config
+    if (ADC1->CR & ADC_CR_ADEN)
+    {
+        ADC1->CR |= ADC_CR_ADDIS;
+    }
+    // Wait for disable
+    while (ADC1->CR & ADC_CR_ADEN);
+
+    //adc calibration
+    ADC1->CR |= ADC_CR_ADCAL;
+    while (ADC1->CR & ADC_CR_ADCAL);
+
+    ADC1->CFGR1 = 0;//reset CFGR1 register
+
     /* Select HSI14 with CKMODE=00 */
     MODIFY_FIELD(ADC1->CFGR2, ADC_CFGR2_CKMODE, 0);
     // Init ADCl
@@ -62,8 +76,9 @@ void init_ADC(void)
         hardware trigger) and other features are selected: software trigger,
         right-aligned data, 12-bit resolution. */
     ADC1->CFGR1 = 0;
-    ADC1->CFGR1 |= (0b011 << ADC_CFGR1_EXTSEL_Pos); //select TIM15_TRGO event as external trigger
-    ADC1->CFGR1 |= ADC_CFGR1_EXTEN_0;//rising edge 
+   
+    //ADC1->CFGR1 |= (0b011 << ADC_CFGR1_EXTSEL_Pos); //select TIM15_TRGO event as external trigger
+    //ADC1->CFGR1 |= ADC_CFGR1_EXTEN_0;//rising edge 
 
     // Select ADC channel to convert
     ADC1->CHSELR = ADC_CHSELR_CHSEL0; // Select ADC input channel 0
@@ -72,8 +87,8 @@ void init_ADC(void)
     { /* (1) Ensure that ADRDY = 0 */
         ADC1->ISR |= ADC_ISR_ADRDY; /* (2) Clear ADRDY */
     }
-    ADC1->IER |= ADC_IER_EOCIE; /* Enable end of conversion interrupt */
-    NVIC_EnableIRQ(ADC1_COMP_IRQn); // Enable ADC interrupt in NVIC
+    //ADC1->IER |= ADC_IER_EOCIE; /* Enable end of conversion interrupt */
+    //NVIC_EnableIRQ(ADC1_COMP_IRQn); // Enable ADC interrupt in NVIC
 
     ADC1->CR |= ADC_CR_ADEN; /* (3) Enable the ADC */
     while ((ADC1->ISR & ADC_ISR_ADRDY) == 0) 
@@ -111,7 +126,7 @@ void init_TIM15(void)
  * @return none
  * Reference : 
  */
-void set_adc_timer_arr(uint32_t arr_value)
+void set_adc_timer_arr(uint16_t arr_value)
 {
     ADC_TIMER->ARR = arr_value;
 }
@@ -122,9 +137,9 @@ void set_adc_timer_arr(uint32_t arr_value)
  * set file scoped variable adc_timer_sample_rate
  * Reference : 
  */
-void calculate_adc_timer_arr(uint32_t sample_rate)
+void calculate_adc_timer_arr(uint16_t sample_rate)
 {
-    uint32_t arr_value = (ADC_TIMER_CLK_HZ / sample_rate) - 1;
+    uint16_t arr_value = (ADC_TIMER_CLK_HZ / sample_rate) - 1;
     set_adc_timer_arr(arr_value);
     adc_timer_sample_rate = sample_rate;
 }
@@ -148,7 +163,22 @@ void ADC1_COMP_IRQHandler(void)
  * @return uint16_t soil_moisture_value
  * Reference : 
  */
-uint32_t get_soil_moisture_value(void)
+uint16_t get_soil_moisture_value(void)
 {
     return soil_moisture_value;
+}
+
+uint16_t adc_manual_sample(void)
+{
+    if(ADC1->ISR & ADC_ISR_EOC)
+    {
+        ADC1->ISR |= ADC_ISR_EOC; //clear EOC flag
+    }
+
+    //start conversion
+    ADC1->CR |= ADC_CR_ADSTART;
+
+    //wait for conversion to complete
+    while(!(ADC1->ISR & ADC_ISR_EOC));
+    return ADC1->DR;
 }
