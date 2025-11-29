@@ -17,8 +17,12 @@
 #define ONE_SECOND (1000)
 #define ONE_SECOND_TICKS (TICKMS_CONV(ONE_SECOND))
 
+#define QUARTER_SECOND_TICKS (TICKMS_CONV(250))
+#define HALF_SECOND_TICKS (TICKMS_CONV(500))
+
 #define TIMER_START_ID (0)//timer start marker
 #define TIMER_START_ULED_ID (2)// uled timer start marker
+#define TIMER_SOIL_SAMPLING_ID (3)// soil sampling timer start marker
 
 typedef uint32_t ticktime_t;//time since boot, in 50ms increments
 
@@ -56,14 +60,6 @@ void reset_timer(uint8_t timer);
 * Reference:
 */
 ticktime_t get_timer(uint8_t timer);
-
-/* restores timer progress from return state after finishing e-stop
-* uses file scoped variable timer_start as reference point 
-* @param ticktime_t stored time from previous state timer left
-* @return none
-* Reference:
-*/
-void restoreProgress(ticktime_t storedTime);
 
 
 #endif

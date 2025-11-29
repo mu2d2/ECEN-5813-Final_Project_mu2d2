@@ -21,14 +21,16 @@
 
 #define UNUSED(X)  (void)X
 
+//error
+#define ERROR (0xFFFFFFFFU)
+
 //LED STATES
 #define ON (1U)
 #define OFF (0U)
-#define INC (500)
-#define DEC (-500)
 #define SIGNED_ZERO (0)
 
-#define ERROR (0xFFFFFFFFU)
+//main system defines
+#define F_TIM_CLOCK (48000000L)	// 48 MHz sys clk
 
 
 #endif /* UTILITIES_H_ */

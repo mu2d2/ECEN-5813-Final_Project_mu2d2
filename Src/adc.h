@@ -7,8 +7,8 @@
  ******************************************************************************
  */
 
-#ifndef PWM_H
-#define PWM_H
+#ifndef ADC_H
+#define ADC_H
 #include <utilities.h>
 
 /*
@@ -17,7 +17,16 @@
  * @param none using registers
  * @return none
  * Reference : Reference Manual RM0091 Chapter 10, Section 10.6.1
- * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 3 Analog-​to-​Digital Converter, Page No. 87
+ * Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, 
+ * Chapter: 6 Analog-​to-​Digital Converter, Page No. 194
  */
+void init_ADC(void);
+
+/* returns the latest soil moisture sensor value
+ * @param none 
+ * @return uint16_t soil_moisture_value
+ * Reference : 
+ */
+uint16_t adc_manual_sample(void);
 
 #endif /* ADC_H */

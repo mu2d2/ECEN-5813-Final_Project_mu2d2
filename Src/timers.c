@@ -19,6 +19,7 @@
 static ticktime_t total_ticks = 0;//SysTick Counter every interrupt which is every 20Hz aka 50ms
 ticktime_t timer_start;//relative timer start marker
 ticktime_t uled_timer_start;//relative timer start marker for blink seq control for uled
+ticktime_t soil_sampling_timer_start;//relative timer start marker for soil sampling control
 
 /*
 * init the timing system for sysTick
@@ -42,6 +43,7 @@ void init_systick(void)
     //initalizes start timers
     timer_start = total_ticks;
     uled_timer_start = total_ticks;
+    soil_sampling_timer_start = total_ticks;
 }
 
 /* SysTick Interrupt Service Routine
@@ -85,6 +87,9 @@ void reset_timer(uint8_t timer)
         case TIMER_START_ULED_ID:
             uled_timer_start = now();
             break;
+        case TIMER_SOIL_SAMPLING_ID:
+            soil_sampling_timer_start = now();
+            break;
         default:
             LOG("reset_timer(): Invalid timer ID\r\n");
             break;
@@ -106,20 +111,11 @@ ticktime_t get_timer(uint8_t timer)
             return (now() - timer_start);
         case TIMER_START_ULED_ID:
             return (now() - uled_timer_start);
+        case TIMER_SOIL_SAMPLING_ID:
+            return (now() - soil_sampling_timer_start);
         default:
             LOG("get_timer(): Invalid timer ID\r\n");
             return ERROR;
     }
     
-}
-
-/* restores timer progress from return state after finishing e-stop
-* uses file scoped variable timer_start as reference point 
-* @param ticktime_t stored time from previous state timer left
-* @return none
-* Reference:
-*/
-void restoreProgress(ticktime_t storedTime)
-{
-    timer_start = total_ticks - storedTime;//restores elapsed progress
 }
