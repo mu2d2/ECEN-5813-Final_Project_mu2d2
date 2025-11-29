@@ -16,11 +16,13 @@
 
 //SOIL MOISTURE SENSOR defines
 #define SOIL_SENSOR_PORT (GPIOA)
-#define SOIL_SENSOR_PIN  (0) //PA0 -> ADC1_IN0
-#define SOIL_SENSOR_CHANNEL (0) //ADC1_IN0
+#define SOIL_SENSOR_PIN  (0U) //PA0 -> ADC1_IN0
+#define SOIL_SENSOR_CHANNEL (0U) //ADC1_IN0
 
-//file scope variables
-volatile uint16_t soil_moisture_value = 0;
+#define SOIL_PWR_PORT (GPIOA)
+#define SOIL_PWR_PIN  (6U) //PA6 -> Digital Output control of power soil moisture sensor
+
+#define SOIL_STABILIZATION_TIME_MS (50U) //time for soil moisture sensor to stabilize after power on
 
  /*
  * initializes ADC1 for Soil Moisture Sensor
@@ -71,9 +73,6 @@ void init_ADC(void)
         hardware trigger) and other features are selected: software trigger,
         right-aligned data, 12-bit resolution. */
     ADC1->CFGR1 = 0;
-   
-    //ADC1->CFGR1 |= (0b011 << ADC_CFGR1_EXTSEL_Pos); //select TIM15_TRGO event as external trigger
-    //ADC1->CFGR1 |= ADC_CFGR1_EXTEN_0;//rising edge 
 
     // Select ADC channel to convert
     ADC1->CHSELR = ADC_CHSELR_CHSEL0; // Select ADC input channel 0
@@ -88,17 +87,6 @@ void init_ADC(void)
     { /* (4) Wait until ADC ready */
     /* For robust implementation, add here time-out management */
     }
-}
-
-
-/* returns the latest soil moisture sensor value
- * @param none 
- * @return uint16_t soil_moisture_value
- * Reference : 
- */
-uint16_t get_soil_moisture_value(void)
-{
-    return soil_moisture_value;
 }
 
 /* returns the latest soil moisture sensor value
@@ -118,5 +106,6 @@ uint16_t adc_manual_sample(void)
 
     //wait for conversion to complete
     while(!(ADC1->ISR & ADC_ISR_EOC));
-    return ADC1->DR;
+    return ADC1->DR; //read converted value
+
 }

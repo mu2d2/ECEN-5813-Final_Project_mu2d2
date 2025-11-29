@@ -27,13 +27,6 @@ void init_ADC(void);
  * @return uint16_t soil_moisture_value
  * Reference : 
  */
-uint16_t get_soil_moisture_value(void);
-
-/* returns the latest soil moisture sensor value
- * @param none 
- * @return uint16_t soil_moisture_value
- * Reference : 
- */
 uint16_t adc_manual_sample(void);
 
 #endif /* ADC_H */

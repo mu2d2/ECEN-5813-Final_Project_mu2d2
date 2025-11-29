@@ -16,6 +16,7 @@
  ******************************************************************************
  */
 #include "pwm.h"//servo and uled control
+#include "soil_sensor.h"//for soil sensor state machine
 #include "timers.h"//timing 
 #include "state_machine.h"//state_machine control of Application
 #include "log.h"//debug 
@@ -33,62 +34,75 @@ int main(void)
 	 * the ST-Link COM port setting.
 	 * Clocks: Processor = 48 Mhz. AHB = 48 MHz. APB = 24 MHz.
 	 */
-	LOG("Hello World !\r\n");
+	LOG("Hello World!\r\n");
 
 	/* Initialization */
 	init_uled();
 	init_PWM_SERVO();
 	init_systick();
-	init_ADC();
-	init_TIM15();
-	calculate_adc_timer_arr(10);  // 10 Hz sampling rate
-	
-
+	soil_sensor_init();//adc hardware init and gpio init for soil moisture sensor
 	set_uled(OFF);
+	LOG("Initialization Complete\r\n");
 	
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
+	reset_timer(TIMER_SOIL_SAMPLING_ID);//starts timer
 	uint8_t blink = 0;
 #ifdef SERVO
 	uint8_t test  = 0;
 #endif
-	//uint16_t soil_moisture_cur = 0, soil_moisture_next = 0;
+#ifdef SOIL_SENSOR
 	uint16_t adc_value = 0;
-	ticktime_t local_timer = 0;
-	ticktime_t local_timer_adc = 0;
+	uint16_t last_raw = 0;
+    uint8_t  last_pct = 0;
+	soil_sensor_begin_measurement();//start first measurement
+#endif
+	ticktime_t local_timer_heartbeat = 0;
 	for(;;)
 	{
-		local_timer = get_timer(TIMER_START_ULED_ID);
-		if(local_timer >= ONE_SECOND_TICKS)//1second interrupt
+		//heartbeat uled every second
+		local_timer_heartbeat = get_timer(TIMER_START_ULED_ID);
+		if(local_timer_heartbeat >= ONE_SECOND_TICKS)//1second interrupt
 		{
 			blink = !blink;//toggle uled flag
 			reset_timer(TIMER_START_ULED_ID);//reset timer reference
 			set_uled(blink);//toggle uled flag
 		}
+		/*
+		
+		
+		
+		
+		*/
+#ifdef SOIL_SENSOR
+		soil_measure_fsm();//run soil sensor state machine
+		if(soil_sensor_is_ready())
+		{
+			//new data available
+			adc_value = soil_sensor_get_raw();
+			if(adc_value != last_raw)//if didn't change, don't log
+			{
+				last_raw = adc_value;
+				last_pct = soil_sensor_get_percent();
+				LOG("Soil Moisture: Raw=%u, Percent=%u%%\r\n", last_raw, last_pct);
+			}
+			soil_sensor_begin_measurement();//start next measurement
+		}
+#endif
+		/*
+		
+		
+		
+		
+		*/
 #ifdef SERVO
 		if(!test)
 		{
 			servo_set_angle(270);
 			test = !test;
 		}
-#endif
-#ifdef SOIL_SENSOR
-		/*soil_moisture_next = get_soil_moisture_value();//get latest soil moisture value
-		if(soil_moisture_next != soil_moisture_cur)//if value has changed, log it
-		{
-			soil_moisture_cur = soil_moisture_next;
-			LOG("Soil Moisture Value: %lu\r\n", soil_moisture_cur);
-		}*/
-		local_timer_adc = get_timer(TIMER_START_ID);
-		if(local_timer_adc >= QUARTER_SECOND_TICKS)
-		{
-			adc_value = adc_manual_sample();
-			LOG("Soil Moisture Value: %u\r\n", adc_value);
-			reset_timer(TIMER_START_ID);//reset timer reference
-		}
-		
 #endif
 	}
 }
