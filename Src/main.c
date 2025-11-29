@@ -21,6 +21,8 @@
 #include "state_machine.h"//state_machine control of Application
 #include "log.h"//debug 
 #include "adc.h"//adc control
+#include "spi.h"//spi control for lcd
+#include "lcd.h"//lcd control
 
 //#define SERVO
 //#define SOIL_SENSOR
