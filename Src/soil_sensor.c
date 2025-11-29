@@ -23,6 +23,7 @@ static soil_state_t soil_state = SOIL_IDLE;
 
 // Stabilization time
 #define SOIL_STABILIZE_MS     (50U)
+#define SOIL_STABILIZE_TICKS  (TICKMS_CONV(SOIL_STABILIZE_MS))
 
 // Calibration values (replace with real-world data)
 #define SOIL_CALIB_DRY_RAW    (1U)
@@ -138,7 +139,7 @@ void soil_measure_fsm(void)
             //nothing to do
             break;
         case SOIL_WAIT:
-            if (get_timer(TIMER_SOIL_SAMPLING_ID) >= SOIL_STABILIZE_MS)
+            if (get_timer(TIMER_SOIL_SAMPLING_ID) >= SOIL_STABILIZE_TICKS)
             {
                 soil_raw = adc_manual_sample();//take ADC sample
                 soil_pct = soil_raw_to_pct(soil_raw);//convert to percentage
