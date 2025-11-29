@@ -23,8 +23,8 @@
 #include "adc.h"//adc control
 
 //#define SERVO
-#define SOIL_SENSOR
-//#define LCD
+//#define SOIL_SENSOR
+#define LCD
 
 int main(void)
 {
@@ -90,6 +90,15 @@ int main(void)
 			}
 			soil_sensor_begin_measurement();//start next measurement
 		}
+#endif
+		/*
+		
+		
+		
+		
+		*/
+#ifdef LCD
+		LOG("LCD Update Placeholder\r\n");
 #endif
 		/*
 		
