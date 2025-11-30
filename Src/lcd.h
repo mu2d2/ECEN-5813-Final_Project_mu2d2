@@ -26,12 +26,12 @@
 void lcd_printf(const char *format, ...);
 
 /* initializes the lcd
- * @param spi2_cs_t *cs, pointer to chip select struct for lcd shift register
+ * @param none
  * @return none
  * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
  * https://github.com/omersiar/ShiftedLCD
  */
-void lcd_init(spi2_cs_t *cs);
+void lcd_init(void);
 
 /* clears the lcd display
  * @param none
@@ -40,7 +40,6 @@ void lcd_init(spi2_cs_t *cs);
  * https://github.com/omersiar/ShiftedLCD
  */
 void lcd_clear(void);
-
 
 /* homes the lcd cursor
  * @param none
@@ -74,22 +73,6 @@ void lcd_write_char(char c);
  * https://github.com/omersiar/ShiftedLCD
  */
 void lcd_write_string(const char *str);
-
-/* writes a command byte to the lcd
- * @param uint8_t cmd, command byte to send
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_write_cmd(uint8_t cmd);
-
-/* writes a data byte to the lcd
- * @param uint8_t data, data byte to send
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_write_data(uint8_t data);
 
 
 #endif /* LCD_H_ */

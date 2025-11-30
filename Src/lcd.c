@@ -15,8 +15,10 @@
 
 //LCD defines
 #define LCD_MAX_PRINTF_SIZE (64U)//max formatted string size for lcd_printf
+//timing defines
 #define LCD_SETTLE_TIME_US (50U)
-#define LCD_POWER_ON_DELAY_MS (40U)
+#define LCD_POWER_ON_DELAY_MS (15U)
+#define LCD_LONG_DELAY_MS (2U)
 
 // LCD Commands
 #define LCD_CMD_CLEAR            (0x01)
@@ -59,8 +61,6 @@
 #define LCD_EN_BIT (4)
 #define LCD_RS_BIT (5)
 
-//one active cs per lcd
-static spi2_cs_t *lcd_sr_cs;//chip select for lcd shift register
 
 /* sets or clears a specific bit in a byte
  * @param uint8_t value, byte to modify
@@ -89,9 +89,9 @@ uint8_t set_bit(uint8_t value, uint8_t bit, uint8_t state)
  */
 void lcd_shiftreg_write(uint8_t data)
 {
-    spi2_set_cs(lcd_sr_cs, 0);
+    spi2_set_cs(0);
     spi2_write(data);
-    spi2_set_cs(lcd_sr_cs, 1);
+    spi2_set_cs(1);
 }
 
 /* sends a nibble (4 bits) to the lcd via the shift register
@@ -145,28 +145,6 @@ void lcd_send_byte(uint8_t value, uint8_t rs)
     }
 }
 
-/* writes a command byte to the lcd
- * @param uint8_t cmd, command byte to send
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_write_cmd(uint8_t cmd)
-{
-    lcd_send_byte(cmd, 0);
-}
-
-/* writes a data byte to the lcd
- * @param uint8_t data, data byte to send
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_write_data(uint8_t data)
-{
-    lcd_send_byte(data, 1);
-}
-
 /* writes a character to the lcd
  * @param char c, character to send
  * @return none
@@ -175,7 +153,7 @@ void lcd_write_data(uint8_t data)
  */
 void lcd_write_char(char c)
 {
-    lcd_write_data((uint8_t)c);
+    lcd_send_byte((uint8_t)c, 1);
 }
 
 /* writes a string to the lcd
@@ -206,7 +184,7 @@ void lcd_write_string(const char *str)
  */
 void lcd_clear(void)
 {
-    lcd_write_cmd(LCD_CMD_CLEAR);
+    lcd_send_byte(LCD_CMD_CLEAR, 0);
     delay_ms(2);
 }
 
@@ -219,7 +197,7 @@ void lcd_clear(void)
  */
 void lcd_home(void)
 {
-    lcd_write_cmd(LCD_CMD_HOME);
+    lcd_send_byte(LCD_CMD_HOME, 0);
     delay_ms(2);
 }
 
@@ -234,24 +212,29 @@ void lcd_home(void)
 void lcd_set_cursor(uint8_t col, uint8_t row)
 {
     static const uint8_t row_offsets[2] = {0x00, 0x40};
-    lcd_write_cmd(LCD_CMD_SET_DDRAM | (col + row_offsets[row]));
+    
+    if (row >= LCD_ROWS) 
+    {
+        row = 0; // Prevent out-of-bounds access
+        LOG("lcd_set_cursor: Invalid row, resetting to 0\r\n");
+    }
+    if (col >= LCD_COLUMNS)
+    {
+        col = 0; // Prevent out-of-bounds access
+        LOG("lcd_set_cursor: Invalid column, resetting to 0\r\n");
+    }
+
+    lcd_send_byte(LCD_CMD_SET_DDRAM | (col + row_offsets[row]), 0);
 }
 
 /* initializes the lcd
- * @param spi2_cs_t *cs, pointer to chip select struct for lcd shift register
+ * @param none
  * @return none
  * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
  * https://github.com/omersiar/ShiftedLCD
  */
-void lcd_init(spi2_cs_t *cs)
+void lcd_init(void)
 {
-    if (cs == NULL) 
-    {
-        LOG("LCD Init Error: CS pointer is NULL\r\n");
-        return;
-    }
-
-    lcd_sr_cs = cs;
 
     delay_ms(LCD_POWER_ON_DELAY_MS); // LCD power-up
 
