@@ -22,7 +22,7 @@
 #include "log.h"//debug 
 #include "adc.h"//adc control
 #include "spi.h"//spi control for lcd
-#include "lcd.h"//lcd control
+#include "lcd.h"//lcd control commands
 
 //#define SERVO
 //#define SOIL_SENSOR
@@ -44,6 +44,22 @@ int main(void)
 	init_systick();
 	soil_sensor_init();//adc hardware init and gpio init for soil moisture sensor
 	set_uled(OFF);
+#ifdef LCD
+	spi2_cs_t lcd_cs;
+	//pick random unused pin for lcd cs since there is only 1 spi device
+	#define LCD_CS_PIN (4U) //PA4
+	spi2_init(2);//initialize spi2 with clk prescaler of 2
+	spi2_configure_cs(&lcd_cs, SPI2_CS_PORT_A, LCD_CS_PIN);
+	lcd_init(&lcd_cs);
+
+	lcd_clear();
+    lcd_set_cursor(0, 0);
+
+	//test message
+    lcd_printf("Hello World!");
+
+    LOG("LCD Hello World Test Done\r\n");
+#endif
 	LOG("Initialization Complete\r\n");
 	
     /* Loop forever */

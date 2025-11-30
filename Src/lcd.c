@@ -9,10 +9,14 @@
 #include "lcd.h"
 #include "log.h"
 #include "timers.h"
+#include <stdarg.h>//for vsnprintf
+#include <stdio.h>
 #include <stm32f091xc.h>//device header
 
 //LCD defines
+#define LCD_MAX_PRINTF_SIZE (64U)//max formatted string size for lcd_printf
 #define LCD_SETTLE_TIME_US (50U)
+#define LCD_POWER_ON_DELAY_MS (40U)
 
 // LCD Commands
 #define LCD_CMD_CLEAR            (0x01)
@@ -23,6 +27,21 @@
 #define LCD_CMD_FUNCTION_SET     (0x20)
 #define LCD_CMD_SET_CGRAM        (0x40)
 #define LCD_CMD_SET_DDRAM        (0x80)
+
+// ENTRY MODE OPTIONS
+#define LCD_ENTRY_INC            (0x02)
+#define LCD_ENTRY_NO_SHIFT       (0x00)
+
+// DISPLAY CONTROL OPTIONS
+#define LCD_DISPLAY_ON           (0x04)
+#define LCD_CURSOR_OFF           (0x00)
+#define LCD_BLINK_OFF            (0x00)
+
+// FUNCTION SET OPTIONS
+#define LCD_FS_4BIT              (0x00)
+#define LCD_FS_2LINE             (0x08)
+#define LCD_FS_5x8FONT           (0x00)
+
 // ----- Shift Register Bit Mapping -----
 // Q0 → LCD D4
 // Q1 → LCD D5
@@ -33,12 +52,12 @@
 // Q6/Q7 unused
 
 //shift register defines
-#define LCD_D4_BIT 0
-#define LCD_D5_BIT 1
-#define LCD_D6_BIT 2
-#define LCD_D7_BIT 3
-#define LCD_EN_BIT 4
-#define LCD_RS_BIT 5
+#define LCD_D4_BIT (0)
+#define LCD_D5_BIT (1)
+#define LCD_D6_BIT (2)
+#define LCD_D7_BIT (3)
+#define LCD_EN_BIT (4)
+#define LCD_RS_BIT (5)
 
 //one active cs per lcd
 static spi2_cs_t *lcd_sr_cs;//chip select for lcd shift register
@@ -70,9 +89,9 @@ uint8_t set_bit(uint8_t value, uint8_t bit, uint8_t state)
  */
 void lcd_shiftreg_write(uint8_t data)
 {
-    spi2_set_cs(0);
+    spi2_set_cs_instance(lcd_sr_cs, 0);
     spi2_write(data);
-    spi2_set_cs(1);
+    spi2_set_cs_instance(lcd_sr_cs, 1);
 }
 
 /* sends a nibble (4 bits) to the lcd via the shift register
@@ -120,7 +139,7 @@ void lcd_send_byte(uint8_t value, uint8_t rs)
     lcd_send_nibble(value & 0x0F, rs);
 
     // Long delay for clear/home
-    if (!rs && (value == 0x01 || value == 0x02))
+    if (!rs && (value == LCD_CMD_CLEAR || value == LCD_CMD_HOME))
     {
         delay_ms(2);
     }
@@ -187,7 +206,7 @@ void lcd_write_string(const char *str)
  */
 void lcd_clear(void)
 {
-    lcd_write_cmd(0x01);
+    lcd_write_cmd(LCD_CMD_CLEAR);
     delay_ms(2);
 }
 
@@ -200,7 +219,7 @@ void lcd_clear(void)
  */
 void lcd_home(void)
 {
-    lcd_write_cmd(0x02);
+    lcd_write_cmd(LCD_CMD_HOME);
     delay_ms(2);
 }
 
@@ -215,7 +234,7 @@ void lcd_home(void)
 void lcd_set_cursor(uint8_t col, uint8_t row)
 {
     static const uint8_t row_offsets[2] = {0x00, 0x40};
-    lcd_write_cmd(0x80 | (col + row_offsets[row]));
+    lcd_write_cmd(LCD_CMD_SET_DDRAM | (col + row_offsets[row]));
 }
 
 /* initializes the lcd
@@ -234,7 +253,7 @@ void lcd_init(spi2_cs_t *cs)
 
     lcd_sr_cs = cs;
 
-    delay_ms(LCD_SETTLE_TIME_US); // LCD power-up
+    delay_ms(LCD_POWER_ON_DELAY_MS); // LCD power-up
 
     // Initialization sequence for 4-bit mode
     lcd_send_nibble(0x03, 0);
@@ -249,15 +268,43 @@ void lcd_init(spi2_cs_t *cs)
     lcd_send_nibble(0x02, 0);   // Enter 4-bit mode
 
     // Function set: 4-bit, 2-line, 5x8 font
-    lcd_write_cmd(0x28);
+    lcd_write_cmd(LCD_CMD_FUNCTION_SET | LCD_FS_2LINE | LCD_FS_5x8FONT);
 
     // Display ON, Cursor OFF
-    lcd_write_cmd(0x0C);
+    lcd_write_cmd(LCD_CMD_DISPLAY_CTRL | LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF);
 
     // Clear
-    lcd_write_cmd(0x01);
+    lcd_write_cmd(LCD_CMD_CLEAR);
     delay_ms(2);
 
     // Entry mode: increment, no shift
-    lcd_write_cmd(0x06);
+    lcd_write_cmd(LCD_CMD_ENTRY_MODE | LCD_ENTRY_INC | LCD_ENTRY_NO_SHIFT);
+}
+
+
+/* prints the formatted string to the lcd
+ * @param const char *format, formatted string to send
+ * @return none
+ * Reference : 
+ * https://stackoverflow.com/questions/11302393/creating-a-customised-version-of-printf
+ */
+void lcd_printf(const char *format, ...)
+{
+    if (!format)
+    {
+        LOG("lcd_printf: NULL format pointer\r\n");
+        return;
+    }
+
+    char buffer[LCD_MAX_PRINTF_SIZE];//creates string buffer
+
+    va_list args;
+    va_start(args, format);
+    //creates string from format and args
+    vsnprintf(buffer, LCD_MAX_PRINTF_SIZE, format, args);
+    va_end(args);
+
+    //moves string to lcd
+    lcd_write_string(buffer);
+
 }

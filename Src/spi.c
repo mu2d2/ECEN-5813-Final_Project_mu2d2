@@ -117,28 +117,33 @@ void spi2_write_buffer(const uint8_t* data, uint16_t length)
 
 /* SPI2 Chip Select control configuration
  * @param cs : struct containing port and pin information
+ * @param port : GPIO port for chip select
+ * @param pin : GPIO pin number for chip select
  * @return none
  * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
-void spi2_configure_cs(spi2_cs_t *cs, void *port, uint8_t pin)
+void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin)
 {
-    cs->port = (GPIO_TypeDef *)port;
+    //grabs the right peripheral clock and port
+    switch (port)
+    {
+        case SPI2_CS_PORT_A:
+            cs->port = GPIOA;
+            RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
+            break;
+
+        case SPI2_CS_PORT_B:
+            cs->port = GPIOB;
+            RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
+            break;
+
+        case SPI2_CS_PORT_C:
+            cs->port = GPIOC;
+            RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
+            break;
+    }
     cs->pin  = pin;
     active_cs = cs;
-
-    //grabs the right peripheral clock for the given port
-    if (cs->port == GPIOA)
-    {
-        RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
-    } 
-    if (cs->port == GPIOB)
-    {
-        RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
-    } 
-    if (cs->port == GPIOC)
-    {
-        RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
-    } 
 
     // Configure pin as output
     cs->port->MODER &= ~(3U << (cs->pin * 2));

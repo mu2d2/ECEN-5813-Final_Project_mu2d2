@@ -62,6 +62,14 @@ void reset_timer(uint8_t timer);
 ticktime_t get_timer(uint8_t timer);
 
 /*
+* delays for a specified number of milliseconds using systick timer
+* @param uint32_t ms, number of milliseconds to delay
+* @return none
+* Reference:
+*/
+void delay_ms(uint32_t ms);
+
+/* hard spin loop
 * delays for a specified number of microseconds
 * @param uint32_t us, number of microseconds to delay
 * @return none

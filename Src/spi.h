@@ -11,6 +11,13 @@
 #define SPI_H
 #include "utilities.h"
 
+//enum for chip select port access from main.c
+typedef enum {
+    SPI2_CS_PORT_A,
+    SPI2_CS_PORT_B,
+    SPI2_CS_PORT_C
+} spi2_cs_port_t;
+
 typedef struct spi2_cs spi2_cs_t;//forward declaration struct for chip select control
 
 //enable WRITE_ONLY_SPI to reduce code size if only writing to SPI devices
@@ -22,14 +29,16 @@ typedef struct spi2_cs spi2_cs_t;//forward declaration struct for chip select co
  * @return none
  * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
-void spi2_init(uint8_t clk_prescaler)
+void spi2_init(uint8_t clk_prescaler);
 
 /* SPI2 Chip Select control configuration
  * @param cs : struct containing port and pin information
+ * @param port : GPIO port for chip select
+ * @param pin : GPIO pin number for chip select
  * @return none
  * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
-void spi2_configure_cs(spi2_cs_t cs);
+void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin);
 
 /* SPI2 Chip Select control sets pin high or low
  * @param state : 1 = HIGH, 0 = LOW
