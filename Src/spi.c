@@ -92,8 +92,13 @@ void spi2_write(uint8_t data)
     while (!(SPI2->SR & SPI_SR_TXE));
     SPI2->DR = data;
 
-    while (!(SPI2->SR & SPI_SR_RXNE));
-    (void)SPI2->DR;//clears the RX buffer
+    //waits till transfer is done
+    while (!(SPI2->SR & SPI_SR_BSY));
+
+    if(SPI2->SR & SPI_SR_RXNE)
+    {
+    	(void)SPI2->DR;//clears the RX buffer
+    }
 }
 /* writes multiple bytes of data to SPI2 peripheral
  * @return none

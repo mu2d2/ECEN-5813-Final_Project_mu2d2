@@ -121,23 +121,18 @@ ticktime_t get_timer(uint8_t timer)
 }
 
 /*
-* delays for a specified number of milliseconds using systick timer
+* delays for a specified number of milliseconds
 * @param uint32_t ms, number of milliseconds to delay
 * @return none
 * Reference:
 */
 void delay_ms(uint32_t ms)
 {
-    ticktime_t start_time = now();
-    ticktime_t wait_ticks = ms / TICKTIME_MS;
-    if (wait_ticks == 0U)
+    while (ms--)
     {
-        wait_ticks = 1U;//minimum wait time is 1 tick
+        delay_us(1000U);
     }
-    while ((now() - start_time) < wait_ticks)
-    {
-        //busy wait
-    }
+
 }
 
 /* hard spin loop
@@ -148,10 +143,10 @@ void delay_ms(uint32_t ms)
 */
 void delay_us(uint32_t us)
 {
-    uint32_t count = us * 16U;  // 48MHz / 3 cycles ≈ 16 iterations per microsecond
-    
-    while (count--)
-    {
-        __asm__("nop");
-    }
+	// ~48 cycles per microsecond   (approx for 48 MHz)
+	// Loop is ~4 cycles, so multiply by 12
+	for (uint32_t i = 0; i < (us * 12U); i++)
+	{
+		__asm volatile ("nop");
+	}
 }

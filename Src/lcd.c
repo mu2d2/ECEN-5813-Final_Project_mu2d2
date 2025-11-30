@@ -44,6 +44,9 @@
 #define LCD_FS_2LINE             (0x08)
 #define LCD_FS_5x8FONT           (0x00)
 
+#define LCD_ROW1_ADDRESS      (0x00)
+#define LCD_ROW2_ADDRESS      (0x40)
+
 // ----- Shift Register Bit Mapping -----
 // Q0 → LCD D4
 // Q1 → LCD D5
@@ -135,6 +138,11 @@ void lcd_send_nibble(uint8_t nibble, uint8_t rs)
  */
 void lcd_send_byte(uint8_t value, uint8_t rs)
 {
+    if (rs > 1)
+    {
+        LOG("LCD Error: RS must be 0 or 1 (got %u)\r\n", rs);
+        return;
+    }
     lcd_send_nibble(value >> 4, rs);
     lcd_send_nibble(value & 0x0F, rs);
 
@@ -210,9 +218,7 @@ void lcd_home(void)
  * https://github.com/omersiar/ShiftedLCD
  */
 void lcd_set_cursor(uint8_t col, uint8_t row)
-{
-    static const uint8_t row_offsets[2] = {0x00, 0x40};
-    
+{    
     if (row >= LCD_ROWS) 
     {
         row = 0; // Prevent out-of-bounds access
@@ -224,6 +230,7 @@ void lcd_set_cursor(uint8_t col, uint8_t row)
         LOG("lcd_set_cursor: Invalid column, resetting to 0\r\n");
     }
 
+    static const uint8_t row_offsets[2] = {LCD_ROW1_ADDRESS, LCD_ROW2_ADDRESS};
     lcd_send_byte(LCD_CMD_SET_DDRAM | (col + row_offsets[row]), 0);
 }
 
@@ -237,31 +244,34 @@ void lcd_init(void)
 {
 
     delay_ms(LCD_POWER_ON_DELAY_MS); // LCD power-up
-
+    LOG("power on delay over \r\n");
     // Initialization sequence for 4-bit mode
     lcd_send_nibble(0x03, 0);
     delay_ms(5);
+    LOG("first ms delay \r\n");
+    lcd_send_nibble(0x03, 0);
+    delay_us(200);
+    LOG("first delay_us in lcd init\r\n");
 
     lcd_send_nibble(0x03, 0);
     delay_us(200);
-
-    lcd_send_nibble(0x03, 0);
-    delay_us(200);
-
+	LOG("Init seq done \r\n");
     lcd_send_nibble(0x02, 0);   // Enter 4-bit mode
-
+	LOG("enter 4 bit mode \r\n");
     // Function set: 4-bit, 2-line, 5x8 font
-    lcd_write_cmd(LCD_CMD_FUNCTION_SET | LCD_FS_2LINE | LCD_FS_5x8FONT);
+    lcd_send_byte(LCD_CMD_FUNCTION_SET | LCD_FS_2LINE | LCD_FS_5x8FONT, 0);
 
     // Display ON, Cursor OFF
-    lcd_write_cmd(LCD_CMD_DISPLAY_CTRL | LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF);
+    lcd_send_byte(LCD_CMD_DISPLAY_CTRL | LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF, 0);
 
     // Clear
-    lcd_write_cmd(LCD_CMD_CLEAR);
+    lcd_send_byte(LCD_CMD_CLEAR, 0);
     delay_ms(2);
 
     // Entry mode: increment, no shift
-    lcd_write_cmd(LCD_CMD_ENTRY_MODE | LCD_ENTRY_INC | LCD_ENTRY_NO_SHIFT);
+    lcd_send_byte(LCD_CMD_ENTRY_MODE | LCD_ENTRY_INC | LCD_ENTRY_NO_SHIFT, 0);
+
+	LOG("entry mode increment and no shift, display on, cursor off\r\n");
 }
 
 

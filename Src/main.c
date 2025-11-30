@@ -45,18 +45,17 @@ int main(void)
 	soil_sensor_init();//adc hardware init and gpio init for soil moisture sensor
 	set_uled(OFF);
 #ifdef LCD
-	spi2_cs_t lcd_cs;
-	//pick random unused pin for lcd cs since there is only 1 spi device
-	#define LCD_CS_PIN (4U) //PA4
-	spi2_init(2);//initialize spi2 with clk prescaler of 2
-	spi2_configure_cs(&lcd_cs, SPI2_CS_PORT_A, LCD_CS_PIN);
-	lcd_init(&lcd_cs);
-
+	spi2_init(4);//init spi 2 with clk divider of 4
+	spi2_configure_cs(SPI2_CS_PORT_A, 5);//configure cs to any pin
+	LOG("Spi config and init done \r\n");
+	lcd_init();
+	LOG("lcd init done \r\n");
 	lcd_clear();
-    lcd_set_cursor(0, 0);
-
-	//test message
-    lcd_printf("Hello World!");
+	LOG("lcd cleared \r\n");
+	lcd_set_cursor(0, 0);
+	LOG("cursor set \r\n");
+	lcd_write_string("Hello World!");
+	LOG("writing string \r\n");
 
     LOG("LCD Hello World Test Done\r\n");
 #endif
@@ -116,7 +115,8 @@ int main(void)
 		
 		*/
 #ifdef LCD
-		LOG("LCD Update Placeholder\r\n");
+
+
 #endif
 		/*
 		

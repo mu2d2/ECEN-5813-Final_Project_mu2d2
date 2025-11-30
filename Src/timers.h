@@ -11,7 +11,8 @@
 #include "log.h"//include for debug logging
 #include <stdint.h>
 
-#define TICKTIME_MS (50U)
+#define TICKTIME_MS (50U)//50 ticks for 1 millisecond
+#define TICKS_US (20U)//1 tick = 20 microseconds
 #define TICKMS_CONV(x) (x/TICKTIME_MS)//macro for determining ticks per ms
 
 #define ONE_SECOND (1000)
@@ -62,7 +63,7 @@ void reset_timer(uint8_t timer);
 ticktime_t get_timer(uint8_t timer);
 
 /*
-* delays for a specified number of milliseconds using systick timer
+* delays for a specified number of milliseconds
 * @param uint32_t ms, number of milliseconds to delay
 * @return none
 * Reference:
