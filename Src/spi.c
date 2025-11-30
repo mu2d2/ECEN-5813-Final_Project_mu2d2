@@ -154,24 +154,25 @@ void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin)
     cs->port->PUPDR   &= ~(3U << (cs->pin * 2));
 
     // default high
-    spi2_set_cs(1);
+    spi2_set_cs(active_cs, 1);
 }
 
 /* SPI2 Chip Select control sets pin high or low
+ * @param cs the chipselect being changed
  * @param state : 1 = HIGH, 0 = LOW
  * @return none
  * Reference : 
  */
-void spi2_set_cs(uint8_t state)
+void spi2_set_cs(spi2_cs_t *cs, uint8_t state)
 {
     if (state)
     {
         // Set CS high
-        active_cs->port->BSRR = (1U << active_cs->pin);
+        cs->port->BSRR = (1U << cs->pin);
     }
     else
     {
         // Set CS low
-        active_cs->port->BRR = (1U << active_cs->pin);
+        cs->port->BRR = (1U << cs->pin);
     }
 }

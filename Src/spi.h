@@ -41,17 +41,19 @@ void spi2_init(uint8_t clk_prescaler);
 void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin);
 
 /* SPI2 Chip Select control sets pin high or low
+ * @param cs the chipselect being changed
  * @param state : 1 = HIGH, 0 = LOW
  * @return none
  * Reference : 
  */
-void spi2_set_cs(uint8_t state);
+void spi2_set_cs(spi2_cs_t *cs, uint8_t state);
 
 #ifndef WRITE_ONLY_SPI //functions used only if full duplex functionality is needed
     /*full duplex transfer, and read functions to-do*/
     uint8_t spi2_transfer(uint8_t data);
     uint8_t spi2_read(void);
 #endif
+
 
 /* writes 1 bytes of data to SPI2 peripheral
  * @return none

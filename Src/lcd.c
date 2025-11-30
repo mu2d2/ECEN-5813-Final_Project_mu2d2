@@ -89,9 +89,9 @@ uint8_t set_bit(uint8_t value, uint8_t bit, uint8_t state)
  */
 void lcd_shiftreg_write(uint8_t data)
 {
-    spi2_set_cs_instance(lcd_sr_cs, 0);
+    spi2_set_cs(lcd_sr_cs, 0);
     spi2_write(data);
-    spi2_set_cs_instance(lcd_sr_cs, 1);
+    spi2_set_cs(lcd_sr_cs, 1);
 }
 
 /* sends a nibble (4 bits) to the lcd via the shift register
