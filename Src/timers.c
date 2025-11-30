@@ -119,3 +119,14 @@ ticktime_t get_timer(uint8_t timer)
     }
     
 }
+
+/*
+* delays for a specified number of microseconds
+* @param uint32_t us, number of microseconds to delay
+* @return none
+* Reference:
+*/
+void delay_us(uint32_t us)
+{
+
+}

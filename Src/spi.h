@@ -20,14 +20,14 @@ typedef struct spi2_cs spi2_cs_t;//forward declaration struct for chip select co
  * PC3 = MOSI, PB10 = SCK, and MISO = PB14 if not WRITE_ONLY_SPI
  * @param: clk_prescaler - clock prescaler value for SPI2
  * @return none
- * Reference : 
+ * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_init(uint8_t clk_prescaler)
 
 /* SPI2 Chip Select control configuration
  * @param cs : struct containing port and pin information
  * @return none
- * Reference : 
+ * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_configure_cs(spi2_cs_t cs);
 
@@ -46,9 +46,10 @@ void spi2_set_cs(uint8_t state);
 
 /* writes 1 bytes of data to SPI2 peripheral
  * @return none
- * Reference : 
+ * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_write(uint8_t data);
+
 /* writes multiple bytes of data to SPI2 peripheral
  * @return none
  * Reference : 

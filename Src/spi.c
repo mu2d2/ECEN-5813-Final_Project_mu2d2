@@ -33,10 +33,11 @@ static spi2_cs_t *active_cs = &spi2_cs_instance;
 #define SPI2_MAX_PRESCALER  (7U) //max prescaler value
 
 
-/* initializes SPI2 peripheral 
-* @param: clk_prescaler - clock prescaler value for SPI2
+/* initializes SPI2 peripheral based on requested speed based on peripheral clk
+ * PC3 = MOSI, PB10 = SCK, and MISO = PB14 if not WRITE_ONLY_SPI
+ * @param: clk_prescaler - clock prescaler value for SPI2
  * @return none
- * Reference : 
+ * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_init(uint8_t clk_prescaler)
 {
@@ -52,17 +53,22 @@ void spi2_init(uint8_t clk_prescaler)
     // PB10 = SCK (AF0)
     MODIFY_FIELD(SPI2_SCK_PORT->MODER, GPIO_MODER_MODER10, 2);   // AF mode
     MODIFY_FIELD(SPI2_SCK_PORT->AFR[1], GPIO_AFRH_AFSEL10, 0);   // AF0
-
+    SPI2_SCK_PORT->OSPEEDR |= (3U << (SPI2_SCK_PIN * 2));        // High speed
+    SPI2_SCK_PORT->PUPDR   &= ~(3U << (SPI2_SCK_PIN * 2));       // No pulls
 #ifndef WRITE_ONLY_SPI
     // PB14 = MISO (AF0)
     MODIFY_FIELD(SPI2_MISO_PORT->MODER, GPIO_MODER_MODER14, 2);   // AF mode
     MODIFY_FIELD(SPI2_MISO_PORT->AFR[1], GPIO_AFRH_AFSEL14, 0);   // AF0
+    SPI2_MISO_PORT->OSPEEDR |= (3U << (SPI2_MISO_PIN * 2));
+    SPI2_MISO_PORT->PUPDR   &= ~(3U << (SPI2_MISO_PIN * 2));       // No pulls
 #endif
 
     //PC3 = MOSI (AF0)
     MODIFY_FIELD(SPI2_MOSI_PORT->MODER, GPIO_MODER_MODER3, 2);    // AF mode
     MODIFY_FIELD(SPI2_MOSI_PORT->AFR[0], GPIO_AFRL_AFSEL3, 0);    // AF0
-
+    SPI2_MOSI_PORT->OSPEEDR |= (3U << (SPI2_MOSI_PIN * 2));
+    SPI2_MOSI_PORT->PUPDR   &= ~(3U << (SPI2_MOSI_PIN * 2));       // No pulls
+    
     //spi2 master mode configuration
     SPI2->CR1 = 0;
     SPI2->CR2 = 0;
@@ -87,7 +93,7 @@ void spi2_init(uint8_t clk_prescaler)
 
 /* writes 1 bytes of data to SPI2 peripheral
  * @return none
- * Reference : 
+ * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_write(uint8_t data)
 {
@@ -112,7 +118,7 @@ void spi2_write_buffer(const uint8_t* data, uint16_t length)
 /* SPI2 Chip Select control configuration
  * @param cs : struct containing port and pin information
  * @return none
- * Reference : 
+ * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_configure_cs(spi2_cs_t *cs, void *port, uint8_t pin)
 {
@@ -137,11 +143,16 @@ void spi2_configure_cs(spi2_cs_t *cs, void *port, uint8_t pin)
     // Configure pin as output
     cs->port->MODER &= ~(3U << (cs->pin * 2));
     cs->port->MODER |=  (1U << (cs->pin * 2));   // 01 = output mode
+
+    //high speed and no pulls
+    cs->port->OSPEEDR |= (3U << (cs->pin * 2));
+    cs->port->PUPDR   &= ~(3U << (cs->pin * 2));
+
     // default high
     spi2_set_cs(1);
 }
 
-/* SPI2 Chip Select control sets pin high or low of the active cs
+/* SPI2 Chip Select control sets pin high or low
  * @param state : 1 = HIGH, 0 = LOW
  * @return none
  * Reference : 
