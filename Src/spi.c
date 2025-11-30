@@ -7,19 +7,11 @@
  */
 #include "spi.h"
 #include "log.h"//debug
- #include <stm32f091xc.h>//device header
+#include <stm32f091xc.h>//device header
 
-//struct for chip select control
-struct spi2_cs
-{
-    GPIO_TypeDef* port;
-    uint8_t pin;
-};
-
-//file scoped global
-//instance of chip select struct
-static spi2_cs_t spi2_cs_instance;
-static spi2_cs_t *active_cs = &spi2_cs_instance;
+/* Static CS info — only 1 device */
+static GPIO_TypeDef *cs_port = NULL;
+static uint8_t cs_pin = 0;
 
 //SPI defines
 #define SPI2_SCK_PIN        (10U) //PB10
@@ -116,45 +108,43 @@ void spi2_write_buffer(const uint8_t* data, uint16_t length)
 }
 
 /* SPI2 Chip Select control configuration
- * @param cs : struct containing port and pin information
  * @param port : GPIO port for chip select
  * @param pin : GPIO pin number for chip select
  * @return none
  * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
-void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin)
+void spi2_configure_cs(spi2_cs_port_t port, uint8_t pin)
 {
+
     //grabs the right peripheral clock and port
     switch (port)
     {
         case SPI2_CS_PORT_A:
-            cs->port = GPIOA;
+            cs_port = GPIOA;
             RCC->AHBENR |= RCC_AHBENR_GPIOAEN;
             break;
 
         case SPI2_CS_PORT_B:
-            cs->port = GPIOB;
+            cs_port = GPIOB;
             RCC->AHBENR |= RCC_AHBENR_GPIOBEN;
             break;
 
         case SPI2_CS_PORT_C:
-            cs->port = GPIOC;
+            cs_port = GPIOC;
             RCC->AHBENR |= RCC_AHBENR_GPIOCEN;
             break;
     }
-    cs->pin  = pin;
-    active_cs = cs;
+    cs_pin = pin;
 
     // Configure pin as output
-    cs->port->MODER &= ~(3U << (cs->pin * 2));
-    cs->port->MODER |=  (1U << (cs->pin * 2));   // 01 = output mode
-
+    cs_port->MODER &= ~(3U << (cs_pin * 2));
+    cs_port->MODER |=  (1U << (cs_pin * 2));   // 01 = output mode
     //high speed and no pulls
-    cs->port->OSPEEDR |= (3U << (cs->pin * 2));
-    cs->port->PUPDR   &= ~(3U << (cs->pin * 2));
+    cs_port->OSPEEDR |= (3U << (cs_pin * 2));
+    cs_port->PUPDR   &= ~(3U << (cs_pin * 2));
 
     // default high
-    spi2_set_cs(active_cs, 1);
+    spi2_set_cs(1);
 }
 
 /* SPI2 Chip Select control sets pin high or low
@@ -163,16 +153,16 @@ void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin)
  * @return none
  * Reference : 
  */
-void spi2_set_cs(spi2_cs_t *cs, uint8_t state)
+void spi2_set_cs(uint8_t state)
 {
     if (state)
     {
         // Set CS high
-        cs->port->BSRR = (1U << cs->pin);
+        cs_port->BSRR = (1U << cs_pin);
     }
     else
     {
         // Set CS low
-        cs->port->BRR = (1U << cs->pin);
+        cs_port->BRR = (1U << cs_pin);
     }
 }

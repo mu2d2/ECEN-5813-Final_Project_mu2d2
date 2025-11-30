@@ -18,8 +18,6 @@ typedef enum {
     SPI2_CS_PORT_C
 } spi2_cs_port_t;
 
-typedef struct spi2_cs spi2_cs_t;//forward declaration struct for chip select control
-
 //enable WRITE_ONLY_SPI to reduce code size if only writing to SPI devices
 #define WRITE_ONLY_SPI
 
@@ -32,13 +30,12 @@ typedef struct spi2_cs spi2_cs_t;//forward declaration struct for chip select co
 void spi2_init(uint8_t clk_prescaler);
 
 /* SPI2 Chip Select control configuration
- * @param cs : struct containing port and pin information
  * @param port : GPIO port for chip select
  * @param pin : GPIO pin number for chip select
  * @return none
  * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
-void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin);
+void spi2_configure_cs(spi2_cs_port_t port, uint8_t pin);
 
 /* SPI2 Chip Select control sets pin high or low
  * @param cs the chipselect being changed
@@ -46,7 +43,7 @@ void spi2_configure_cs(spi2_cs_t *cs, spi2_cs_port_t port, uint8_t pin);
  * @return none
  * Reference : 
  */
-void spi2_set_cs(spi2_cs_t *cs, uint8_t state);
+void spi2_set_cs(uint8_t state);
 
 #ifndef WRITE_ONLY_SPI //functions used only if full duplex functionality is needed
     /*full duplex transfer, and read functions to-do*/
