@@ -14,6 +14,15 @@
 //LCD defines
 #define LCD_SETTLE_TIME_US (50U)
 
+// LCD Commands
+#define LCD_CMD_CLEAR            (0x01)
+#define LCD_CMD_HOME             (0x02)
+#define LCD_CMD_ENTRY_MODE       (0x04)
+#define LCD_CMD_DISPLAY_CTRL     (0x08)
+#define LCD_CMD_CURSOR_SHIFT     (0x10)
+#define LCD_CMD_FUNCTION_SET     (0x20)
+#define LCD_CMD_SET_CGRAM        (0x40)
+#define LCD_CMD_SET_DDRAM        (0x80)
 // ----- Shift Register Bit Mapping -----
 // Q0 → LCD D4
 // Q1 → LCD D5
@@ -158,6 +167,11 @@ void lcd_write_char(char c)
  */
 void lcd_write_string(const char *str)
 {
+    if(!str)//empty string
+    {
+        LOG("lcd_write_string: null pointer\r\n");
+        return;
+    }
     while (*str)
     {
         lcd_write_char(*str++);
@@ -212,6 +226,12 @@ void lcd_set_cursor(uint8_t col, uint8_t row)
  */
 void lcd_init(spi2_cs_t *cs)
 {
+    if (cs == NULL) 
+    {
+        LOG("LCD Init Error: CS pointer is NULL\r\n");
+        return;
+    }
+
     lcd_sr_cs = cs;
 
     delay_ms(LCD_SETTLE_TIME_US); // LCD power-up
