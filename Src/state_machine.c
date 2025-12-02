@@ -141,6 +141,16 @@ void water_fsm_run(void)
             uint16_t raw = soil_sensor_get_raw(); //gets value
             LOG("Soil Reading: %u\r\n", raw);
 
+            //extreme values
+            if (raw < DYING_OF_THIRST_THRESHOLD)
+            {
+                LOG("WARNING: Soil critically dry - possible sensor failure!\r\n");
+            }
+            else if (raw > SOAKING_THRESHOLD)
+            {
+                LOG("WARNING: Soil over-saturated - possible sensor failure!\r\n");
+            }
+
             if (raw < DRY_THRESHOLD) //checks if soil is dry
             {
                 LOG("Soil is dry -> start watering\r\n");
