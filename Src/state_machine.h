@@ -27,17 +27,24 @@ typedef enum {
 } water_state_t;
 
 
-/*
+/* Helper function to get textual name for states for logging
+ * @param none 
+ * @return none
+ * Reference : 
+ */
+const char* water_state_to_string(water_state_t state);
+
+/* initializes state machine and servo angle, and starting sample rate
  * @param none 
  * @return none
  * Reference : 
  */
 void water_fsm_init(void);
 
-/*
+/* watering state machine changes states and logs transitions
+ * executes each state function, moving the servo, measuring, etc.
  * @param none 
  * @return none
- * Reference : 
  */
 void water_fsm_run(void);
 
