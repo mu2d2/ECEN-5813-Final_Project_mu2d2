@@ -22,9 +22,13 @@
 #include "log.h"//debug 
 #include "adc.h"//adc control
 
-//#define SERVO
-#define SOIL_SENSOR
-//#define LCD
+/* Test includes */
+#include "test/test_pwm.h"
+#include "test/test_soil_sensor.h"
+#include "test/test_adc.h"
+#include "test/test_state_machine.h"
+
+#define RUN_TESTS
 
 /* 1 second interval led flash to show that loop is working
  * @param none 
@@ -40,7 +44,7 @@ int main(void)
 	 * the ST-Link COM port setting.
 	 * Clocks: Processor = 48 Mhz. AHB = 48 MHz. APB = 24 MHz.
 	 */
-	LOG("Automatic Watering Plant System!\r\n");
+	LOG("\r\nAutomatic Watering Plant System!\r\n");
 
 	/* Initialization */
 	init_uled();
@@ -50,6 +54,28 @@ int main(void)
 	set_uled(OFF);
 	LOG("Initialization Complete\r\n");
 	
+#ifdef RUN_TESTS
+	/* Run unit tests if enabled */
+	LOG("\r\n========== RUNNING UNIT TESTS ==========\r\n");
+	int test_result = 0;
+	test_result |= test_pwm();
+	test_result |= test_soil_sensor();
+	test_result |= test_adc();
+	test_result |= test_state_machine();
+	LOG("\r\n========== UNIT TESTS COMPLETE ==========\r\n");
+	if (test_result == 0)
+	{
+		LOG("All tests PASSED!\r\n");
+		set_uled(ON);
+	}
+	else
+	{
+		LOG("Some tests FAILED!\r\n");
+	}
+	//in case tests fail dont want to potentially break hardware
+	return test_result;
+#endif
+    
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer

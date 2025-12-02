@@ -25,10 +25,9 @@ static soil_state_t soil_state = SOIL_IDLE;
 #define SOIL_STABILIZE_MS     (50U)
 #define SOIL_STABILIZE_TICKS  (TICKMS_CONV(SOIL_STABILIZE_MS))
 
-// Calibration values (replace with real-world data)
-#define SOIL_CALIB_DRY_RAW    (1U)
-#define SOIL_CALIB_WET_RAW    (4095U)
-
+// Soil sensor raw ADC value range (min and max calibration points)
+#define SOIL_RAW_MIN (1U)    // Raw ADC value at dry calibration point
+#define SOIL_RAW_MAX (4095U) // Raw ADC value at wet calibration point
 #define MIN_PERCENTAGE (0U)
 #define MAX_PERCENTAGE (100U)
 
@@ -57,23 +56,22 @@ void set_soil_power(uint8_t state)
 
 
 /* convertes raw ADC value to percentage based on calibration sensor values
- * @param none 
- * @return none
- * Reference : 
+ * @param raw ADC value
+ * @return percentage moisture (0-100)
  */
-static uint8_t soil_raw_to_pct(uint16_t raw)
+uint8_t soil_raw_to_pct(uint16_t raw)
 {
     //clamp values
-    if (raw <= SOIL_CALIB_DRY_RAW) 
+    if (raw <= SOIL_RAW_MIN) 
     {
         return MIN_PERCENTAGE;
     }
-    if (raw >= SOIL_CALIB_WET_RAW) 
+    if (raw >= SOIL_RAW_MAX) 
     {
         return MAX_PERCENTAGE;
     }
     //returns converted percentage  
-    return (uint8_t)(((uint32_t)(raw - SOIL_CALIB_DRY_RAW) * MAX_PERCENTAGE) /(SOIL_CALIB_WET_RAW - SOIL_CALIB_DRY_RAW));
+    return (uint8_t)(((uint32_t)(raw - SOIL_RAW_MIN) * MAX_PERCENTAGE) /(SOIL_RAW_MAX - SOIL_RAW_MIN));
 }
 
 /* initializes GPIO to control power to soil moisture sensor
@@ -142,6 +140,13 @@ void soil_measure_fsm(void)
             if (get_timer(TIMER_SOIL_SAMPLING_ID) >= SOIL_STABILIZE_TICKS)
             {
                 soil_raw = adc_manual_sample();//take ADC sample
+                if (soil_raw == ERROR_CODE)
+                {
+                    LOG("ADC Error: ADC returned ERROR_CODE during soil measurement\r\n");
+                    set_soil_power(OFF);//turns off power to soil moisture sensor
+                    soil_state = SOIL_IDLE; // abort measurement and return to idle
+                    break;
+                }
                 soil_pct = soil_raw_to_pct(soil_raw);//convert to percentage
                 set_soil_power(OFF);//turns off power to soil moisture sensor
                 soil_state = SOIL_DONE;

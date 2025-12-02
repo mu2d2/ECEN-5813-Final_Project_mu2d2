@@ -7,6 +7,7 @@
 */
 
 #include "timers.h"
+#include "utilities.h" // for ERROR macro
 #include <stm32f091xc.h>
 #include <utilities.h>
 #include "core_cm0.h"//include for sysTick
@@ -115,7 +116,7 @@ ticktime_t get_timer(uint8_t timer)
             return (now() - soil_sampling_timer_start);
         default:
             LOG("get_timer(): Invalid timer ID\r\n");
-            return ERROR;
+            return ERROR_CODE;
     }
     
 }
