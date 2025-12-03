@@ -2,66 +2,44 @@
  ******************************************************************************
  * @file           : spi.h
  * @author         : Muthuu SVS
- * @brief          : modular spi library that initializes and controls SPI2
- * for standard peripheral library based STM32F0 devices
+ * @brief          : SPI2 driver for STM32F0 with hardcoded RCLK (PB9)
  ******************************************************************************
  */
 
 #ifndef SPI_H
 #define SPI_H
+
 #include "utilities.h"
 
-//enum for chip select port access from main.c
-typedef enum {
-    SPI2_CS_PORT_A,
-    SPI2_CS_PORT_B,
-    SPI2_CS_PORT_C
-} spi2_cs_port_t;
-
-//enable WRITE_ONLY_SPI to reduce code size if only writing to SPI devices
+// enable WRITE_ONLY_SPI to reduce code size if only writing to SPI devices
 #define WRITE_ONLY_SPI
 
-/* initializes SPI2 peripheral based on requested speed based on peripheral clk
- * PC3 = MOSI, PB10 = SCK, and MISO = PB14 if not WRITE_ONLY_SPI
- * @param: clk_prescaler - clock prescaler value for SPI2
+/* initializes SPI2 peripheral based on requested speed
+ * PC3 = MOSI (AF1), PB10 = SCK (AF5)
+ * also configures PC9 as RCLK latch for 74HC595
+ * @param: clk_prescaler - clock prescaler value for SPI2 (0-7)
  * @return none
- * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_init(uint8_t clk_prescaler);
 
-/* SPI2 Chip Select control configuration
- * @param port : GPIO port for chip select
- * @param pin : GPIO pin number for chip select
+/* writes 1 byte of data to SPI2 peripheral
+ * @param data : byte to send
  * @return none
- * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
- */
-void spi2_configure_cs(spi2_cs_port_t port, uint8_t pin);
-
-/* SPI2 Chip Select control sets pin high or low
- * @param cs the chipselect being changed
- * @param state : 1 = HIGH, 0 = LOW
- * @return none
- * Reference : 
- */
-void spi2_set_cs(uint8_t state);
-
-#ifndef WRITE_ONLY_SPI //functions used only if full duplex functionality is needed
-    /*full duplex transfer, and read functions to-do*/
-    uint8_t spi2_transfer(uint8_t data);
-    uint8_t spi2_read(void);
-#endif
-
-
-/* writes 1 bytes of data to SPI2 peripheral
- * @return none
- * Reference : Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Timers, Page No. 251
  */
 void spi2_write(uint8_t data);
 
 /* writes multiple bytes of data to SPI2 peripheral
+ * @param data   : pointer to buffer
+ * @param length : number of bytes
  * @return none
- * Reference : 
  */
-void spi2_write_buffer(const uint8_t* data, uint16_t length);
+void spi2_write_buffer(const uint8_t *data, uint16_t length);
+
+/* toggles PC9 latch (RCLK for 74HC595)
+ * call after spi2_write() or spi2_write_buffer() to update outputs
+ * @param none
+ * @return none
+ */
+void spi2_latch(void);
 
 #endif /* SPI_H */

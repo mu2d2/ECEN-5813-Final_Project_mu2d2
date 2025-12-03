@@ -2,302 +2,287 @@
  ******************************************************************************
  * @file           : lcd.c
  * @author         : Muthuu SVS
- * @brief          : 
+ * @brief          : 4-bit HD44780 LCD driver over SPI2 + 74HC595
  ******************************************************************************
  */
 
 #include "lcd.h"
-#include "log.h"
-#include "timers.h"
-#include <stdarg.h>//for vsnprintf
+#include "spi.h"
+#include "timers.h"   
+#include <stddef.h>
+#include <stm32f091xc.h>
+#include <stdarg.h>
 #include <stdio.h>
-#include <stm32f091xc.h>//device header
 
-//LCD defines
-#define LCD_MAX_PRINTF_SIZE (64U)//max formatted string size for lcd_printf
-//timing defines
-#define LCD_SETTLE_TIME_US (50U)
-#define LCD_POWER_ON_DELAY_MS (15U)
-#define LCD_LONG_DELAY_MS (2U)
+//LCD print defines
+#define LCD_COLS (16U)
+#define LCD_ROWS (2U)
+#define LCD_PRINTF_BUF (64U)
 
-// LCD Commands
-#define LCD_CMD_CLEAR            (0x01)
-#define LCD_CMD_HOME             (0x02)
-#define LCD_CMD_ENTRY_MODE       (0x04)
-#define LCD_CMD_DISPLAY_CTRL     (0x08)
-#define LCD_CMD_CURSOR_SHIFT     (0x10)
-#define LCD_CMD_FUNCTION_SET     (0x20)
-#define LCD_CMD_SET_CGRAM        (0x40)
-#define LCD_CMD_SET_DDRAM        (0x80)
+//LCD timing constants 
+#define LCD_POWER_UP_DELAY_MS   (50U)
+#define LCD_INIT_8BIT_RETRY_MS  (5U)
+#define LCD_INIT_8BIT_RETRY2_MS (1U)
+#define LCD_INIT_4BIT_DELAY_MS  (1U)
 
-// ENTRY MODE OPTIONS
-#define LCD_ENTRY_INC            (0x02)
-#define LCD_ENTRY_NO_SHIFT       (0x00)
+#define LCD_CMD_DELAY_US    (50U)
+#define LCD_CLEAR_DELAY_MS  (2U)
 
-// DISPLAY CONTROL OPTIONS
-#define LCD_DISPLAY_ON           (0x04)
-#define LCD_CURSOR_OFF           (0x00)
-#define LCD_BLINK_OFF            (0x00)
+#define LCD_NIBBLE_MASK (0x0F)
 
-// FUNCTION SET OPTIONS
-#define LCD_FS_4BIT              (0x00)
-#define LCD_FS_2LINE             (0x08)
-#define LCD_FS_5x8FONT           (0x00)
-
-#define LCD_ROW1_ADDRESS      (0x00)
-#define LCD_ROW2_ADDRESS      (0x40)
-
-// ----- Shift Register Bit Mapping -----
-// Q0 → LCD D4
-// Q1 → LCD D5
-// Q2 → LCD D6
-// Q3 → LCD D7
-// Q4 → LCD EN
-// Q5 → LCD RS
-// Q6/Q7 unused
-
-//shift register defines
-#define LCD_D4_BIT (0)
-#define LCD_D5_BIT (1)
-#define LCD_D6_BIT (2)
-#define LCD_D7_BIT (3)
-#define LCD_EN_BIT (4)
-#define LCD_RS_BIT (5)
-
-
-/* sets or clears a specific bit in a byte
- * @param uint8_t value, byte to modify
- * @param uint8_t bit, which bit to set or clear (0-7)
- * @param uint8_t state, 1 to set, 0 to clear 
- * @return none
- * Reference : 
+//Bit mapping from 74HC595 to LCD
+/*
+ * 74HC595 Outputs:
+ *  Qh Qg Qf Qe | Qd Qc Qb Qa
+ * DB7 DB6 DB5 DB4 |  E  RS  x  x
  */
-uint8_t set_bit(uint8_t value, uint8_t bit, uint8_t state)
-{
-    if(state)
-    {
-        value |=  (1U << bit);
-    } 
-    else       
-    {
-        value &= ~(1U << bit);
-    }
-    return value;
-}
 
-/* writes 8 bit raw data to the lcd shift register
- * @param none 
+#define LCD_DB4    (1U << 4)   // Qe
+#define LCD_DB5    (1U << 5)   // Qf
+#define LCD_DB6    (1U << 6)   // Qg
+#define LCD_DB7    (1U << 7)   // Qh
+
+#define LCD_E      (1U << 3)   // Qd
+#define LCD_RS     (1U << 2)   // Qc
+
+//LCD Command defines
+#define LCD_CMD_CLEAR   (0x01U)
+#define LCD_CMD_HOME    (0x02U)
+
+//Entry Mode Set
+#define LCD_CMD_ENTRY_MODE  (0x04U)
+#define LCD_ENTRY_INCREMENT (0x02U)
+#define LCD_ENTRY_DECREMENT (0x00U)
+#define LCD_ENTRY_SHIFT_ON  (0x01U)
+#define LCD_ENTRY_SHIFT_OFF (0x00U)
+
+//Display Control
+#define LCD_CMD_DISPLAY_CTRL    (0x08U)
+#define LCD_DISPLAY_ON  (0x04U)
+#define LCD_DISPLAY_OFF (0x00U)
+#define LCD_CURSOR_ON   (0x02U)
+#define LCD_CURSOR_OFF  (0x00U)
+#define LCD_BLINK_ON    (0x01U)
+#define LCD_BLINK_OFF   (0x00U)
+
+//Function Set
+#define LCD_CMD_FUNCTION_SET    (0x20U)
+#define LCD_FUNCTION_8BIT   (0x10U)
+#define LCD_FUNCTION_4BIT   (0x00U)
+#define LCD_FUNCTION_2LINE  (0x08U)
+#define LCD_FUNCTION_1LINE  (0x00U)
+#define LCD_FUNCTION_5x10_DOTS  (0x04U)
+#define LCD_FUNCTION_5x8_DOTS   (0x00U)
+
+/* Set DDRAM Address */
+#define LCD_CMD_SET_DDRAM          (0x80U)
+
+/* Pulse the LCD Enable (E) line via 74HC595 output
+ * Sends the provided data byte with E high, then clears E, using the
+ * shift-register latch to update outputs. Small delays ensure timing
+ * requirements of HD44780 controllers are met.
+ * @param data_byte: byte containing DB7-DB4, RS and E mapping
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
  */
-void lcd_shiftreg_write(uint8_t data)
+void lcd_pulse_enable(uint8_t data_byte)
 {
-    spi2_set_cs(0);
-    spi2_write(data);
-    spi2_set_cs(1);
-}
-
-/* sends a nibble (4 bits) to the lcd via the shift register
- * @param uint8_t nibble, 4 bits to send (lower nibble used)
- * @param uint8_t rs, register select: 0 = command, 1 = data
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_send_nibble(uint8_t nibble, uint8_t rs)
-{
-    uint8_t out = 0;
-
-    // Put data bits on shift register
-    out = set_bit(out, LCD_D4_BIT, (nibble >> 0) & 1);
-    out = set_bit(out, LCD_D5_BIT, (nibble >> 1) & 1);
-    out = set_bit(out, LCD_D6_BIT, (nibble >> 2) & 1);
-    out = set_bit(out, LCD_D7_BIT, (nibble >> 3) & 1);
-
-    // RS bit
-    out = set_bit(out, LCD_RS_BIT, rs);
-
-    // EN = high
-    out = set_bit(out, LCD_EN_BIT, 1);
-    lcd_shiftreg_write(out);//writes data   
+    spi2_write(data_byte | LCD_E);
+    spi2_latch();
     delay_us(1);
 
-    // EN = low
-    out = set_bit(out, LCD_EN_BIT, 0);
-    lcd_shiftreg_write(out);//writes data   
-
-    delay_us(LCD_SETTLE_TIME_US);   // LCD settle time
+    spi2_write(data_byte & (uint8_t)(~LCD_E));
+    spi2_latch();
+    delay_us(1);
 }
 
-/* sends a byte (8 bits) to the lcd via the shift register
- * @param uint8_t value, 8 bits to send
- * @param uint8_t rs, register select: 0 = command, 1 = data
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_send_byte(uint8_t value, uint8_t rs)
+
+void lcd_write_nibble(uint8_t nibble, uint8_t rs)
 {
-    if (rs > 1)
-    {
-        LOG("LCD Error: RS must be 0 or 1 (got %u)\r\n", rs);
-        return;
-    }
-    lcd_send_nibble(value >> 4, rs);
-    lcd_send_nibble(value & 0x0F, rs);
+    uint8_t data = 0;
 
-    // Long delay for clear/home
-    if (!rs && (value == LCD_CMD_CLEAR || value == LCD_CMD_HOME))
+    if (rs)
     {
-        delay_ms(2);
+        data |= LCD_RS;
     }
+
+    data |= (uint8_t)((nibble & LCD_NIBBLE_MASK) << 4);
+
+    spi2_write(data);
+    spi2_latch();
+
+    lcd_pulse_enable(data);
+    delay_us(1);
 }
 
-/* writes a character to the lcd
- * @param char c, character to send
+
+/* Send a command to the LCD (high-level helper)
+ * Splits a byte into two 4-bit transfers (high nibble then low nibble)
+ * @param cmd: command byte
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
-void lcd_write_char(char c)
+void lcd_write_cmd(uint8_t cmd)
 {
-    lcd_send_byte((uint8_t)c, 1);
+    lcd_write_nibble(cmd >> 4, 0U);
+    lcd_write_nibble(cmd & LCD_NIBBLE_MASK, 0U);
+    delay_us(LCD_CMD_DELAY_US);
 }
 
-/* writes a string to the lcd
- * @param const char *str, pointer to null-terminated string to send
+
+/* Write a single data byte (character) to the LCD
+ * @param data: character to write
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
-void lcd_write_string(const char *str)
+void lcd_write_data(uint8_t data)
 {
-    if(!str)//empty string
-    {
-        LOG("lcd_write_string: null pointer\r\n");
-        return;
-    }
-    while (*str)
-    {
-        lcd_write_char(*str++);
-    }
-        
+    lcd_write_nibble(data >> 4, 1U);
+    lcd_write_nibble(data & LCD_NIBBLE_MASK, 1U);
+    delay_us(LCD_CMD_DELAY_US);
 }
 
-/* clears the lcd display
+
+/* Initialize the HD44780-compatible LCD connected via 74HC595
+ * Performs the startup sequence in 4-bit mode and configures display options
  * @param none
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_clear(void)
-{
-    lcd_send_byte(LCD_CMD_CLEAR, 0);
-    delay_ms(2);
-}
-
-
-/* homes the lcd cursor
- * @param none
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_home(void)
-{
-    lcd_send_byte(LCD_CMD_HOME, 0);
-    delay_ms(2);
-}
-
-
-/* sets the lcd cursor position
- * @param uint8_t col, column (0 to LCD_COLUMNS-1)
- * @param uint8_t row, row (0 to LCD_ROWS-1)
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_set_cursor(uint8_t col, uint8_t row)
-{    
-    if (row >= LCD_ROWS) 
-    {
-        row = 0; // Prevent out-of-bounds access
-        LOG("lcd_set_cursor: Invalid row, resetting to 0\r\n");
-    }
-    if (col >= LCD_COLUMNS)
-    {
-        col = 0; // Prevent out-of-bounds access
-        LOG("lcd_set_cursor: Invalid column, resetting to 0\r\n");
-    }
-
-    static const uint8_t row_offsets[2] = {LCD_ROW1_ADDRESS, LCD_ROW2_ADDRESS};
-    lcd_send_byte(LCD_CMD_SET_DDRAM | (col + row_offsets[row]), 0);
-}
-
-/* initializes the lcd
- * @param none
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
 void lcd_init(void)
 {
+    delay_ms(LCD_POWER_UP_DELAY_MS);
 
-    delay_ms(LCD_POWER_ON_DELAY_MS); // LCD power-up
-    LOG("power on delay over \r\n");
-    // Initialization sequence for 4-bit mode
-    lcd_send_nibble(0x03, 0);
-    delay_ms(5);
-    LOG("first ms delay \r\n");
-    lcd_send_nibble(0x03, 0);
-    delay_us(200);
-    LOG("first delay_us in lcd init\r\n");
+    // Force 8-bit mode 3 times
+    lcd_write_nibble(0x3, 0U);
+    delay_ms(LCD_INIT_8BIT_RETRY_MS);
 
-    lcd_send_nibble(0x03, 0);
-    delay_us(200);
-	LOG("Init seq done \r\n");
-    lcd_send_nibble(0x02, 0);   // Enter 4-bit mode
-	LOG("enter 4 bit mode \r\n");
-    // Function set: 4-bit, 2-line, 5x8 font
-    lcd_send_byte(LCD_CMD_FUNCTION_SET | LCD_FS_2LINE | LCD_FS_5x8FONT, 0);
+    lcd_write_nibble(0x3, 0U);
+    delay_ms(LCD_INIT_8BIT_RETRY2_MS);
 
-    // Display ON, Cursor OFF
-    lcd_send_byte(LCD_CMD_DISPLAY_CTRL | LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF, 0);
+    lcd_write_nibble(0x3, 0U);
+    delay_ms(LCD_INIT_8BIT_RETRY2_MS);
+
+    //Switch to 4-bit mode
+    lcd_write_nibble(0x2, 0U);
+    delay_ms(LCD_INIT_4BIT_DELAY_MS);
+
+    //Function set: 4-bit, 2 lines, 5x8 font 
+    lcd_write_cmd(LCD_CMD_FUNCTION_SET | LCD_FUNCTION_4BIT | LCD_FUNCTION_2LINE | LCD_FUNCTION_5x8_DOTS);
+
+    //Display OFF
+    lcd_write_cmd(LCD_CMD_DISPLAY_CTRL | LCD_DISPLAY_OFF | LCD_CURSOR_OFF | LCD_BLINK_OFF);
 
     // Clear
-    lcd_send_byte(LCD_CMD_CLEAR, 0);
-    delay_ms(2);
+    lcd_write_cmd(LCD_CMD_CLEAR);
+    delay_ms(LCD_CLEAR_DELAY_MS);
 
-    // Entry mode: increment, no shift
-    lcd_send_byte(LCD_CMD_ENTRY_MODE | LCD_ENTRY_INC | LCD_ENTRY_NO_SHIFT, 0);
+    //Entry mode: increment cursor, no shift
+    lcd_write_cmd(LCD_CMD_ENTRY_MODE | LCD_ENTRY_INCREMENT | LCD_ENTRY_SHIFT_OFF);
 
-	LOG("entry mode increment and no shift, display on, cursor off\r\n");
+    //Display ON, cursor OFF, blink OFF
+    lcd_write_cmd(LCD_CMD_DISPLAY_CTRL | LCD_DISPLAY_ON | LCD_CURSOR_OFF | LCD_BLINK_OFF);
 }
 
 
-/* prints the formatted string to the lcd
- * @param const char *format, formatted string to send
+/* Write a NUL-terminated string to the display at the current cursor
+ * @param str: pointer to NUL-terminated C string
  * @return none
- * Reference : 
- * https://stackoverflow.com/questions/11302393/creating-a-customised-version-of-printf
  */
-void lcd_printf(const char *format, ...)
+void lcd_write_string(const char *str)
 {
-    if (!format)
+    if (!str) return;
+
+    while (*str)
     {
-        LOG("lcd_printf: NULL format pointer\r\n");
-        return;
+        lcd_write_data((uint8_t)*str++);
+    }
+}
+
+
+/* Set the cursor position on the LCD
+ * @param row: 0-based row index
+ * @param col: 0-based column index
+ * @return none
+ */
+void lcd_set_cursor(uint8_t row, uint8_t col)
+{
+    uint8_t addr = (row == 0U) ? col : (0x40 + col);//has to be either 0/1 or 0-40
+    lcd_write_cmd((uint8_t)(LCD_CMD_SET_DDRAM | addr));
+}
+
+
+/* Clear the display and reset DDRAM address to 0
+ * @param none
+ * @return none
+ */
+void lcd_clear(void)
+{
+    lcd_write_cmd(LCD_CMD_CLEAR);
+    delay_ms(LCD_CLEAR_DELAY_MS);    // required: >1.52 ms
+}
+
+
+/* Return cursor to home (0,0) without clearing display RAM
+ * @param none
+ * @return none
+ */
+void lcd_home(void)
+{
+    lcd_write_cmd(LCD_CMD_HOME);
+    delay_ms(LCD_CLEAR_DELAY_MS);    // same execution time as clear
+}
+
+
+/* Print formatted text to the LCD with bounds checking
+ * Ensures formatted output does not overflow the display
+ * @param row: start row (0..LCD_ROWS-1)
+ * @param col: start column (0..LCD_COLS-1)
+ * @param fmt: printf-style format string
+ * @return none
+ */
+void lcd_printf(uint8_t row, uint8_t col, const char *fmt, ...)
+{
+    if (row >= LCD_ROWS || col >= LCD_COLS)
+    {
+        return; // invalid cursor position
     }
 
-    char buffer[LCD_MAX_PRINTF_SIZE];//creates string buffer
+    char buffer[LCD_PRINTF_BUF];
 
+    /* Format the string safely */
     va_list args;
-    va_start(args, format);
-    //creates string from format and args
-    vsnprintf(buffer, LCD_MAX_PRINTF_SIZE, format, args);
+    va_start(args, fmt);
+    int len = vsnprintf(buffer, sizeof(buffer), fmt, args);
     va_end(args);
 
-    //moves string to lcd
-    lcd_write_string(buffer);
+    if (len < 0)
+    {
+        return; // formatting error
+    }
 
+    /* Ensure we do not print past total LCD capacity */
+    uint8_t cur_row = row;
+    uint8_t cur_col = col;
+
+    lcd_set_cursor(cur_row, cur_col);
+
+    for (int i = 0; i < len; i++)
+    {
+        if (cur_row >= LCD_ROWS)
+        {
+            break;  // stop: no more rows available
+        }
+
+        lcd_write_data((uint8_t)buffer[i]);
+        cur_col++;
+
+        /* wrap to next row if needed */
+        if (cur_col >= LCD_COLS)
+        {
+            cur_row++;
+            cur_col = 0;
+
+            if (cur_row < LCD_ROWS)
+            {
+                lcd_set_cursor(cur_row, cur_col);
+            }
+        }
+    }
 }

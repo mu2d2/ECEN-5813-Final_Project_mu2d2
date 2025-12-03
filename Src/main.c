@@ -45,20 +45,21 @@ int main(void)
 	soil_sensor_init();//adc hardware init and gpio init for soil moisture sensor
 	set_uled(OFF);
 #ifdef LCD
-	spi2_init(4);//init spi 2 with clk divider of 4
-	spi2_configure_cs(SPI2_CS_PORT_A, 5);//configure cs to any pin
-	LOG("Spi config and init done \r\n");
-	lcd_init();
-	LOG("lcd init done \r\n");
-	lcd_clear();
-	LOG("lcd cleared \r\n");
-	lcd_set_cursor(0, 0);
-	LOG("cursor set \r\n");
-	lcd_write_string("Hello World!");
-	LOG("writing string \r\n");
-
-    LOG("LCD Hello World Test Done\r\n");
+    LOG("Initializing LCD\r\n");
+    /* Init SPI2 (PC3 MOSI, PB10 SCK, PC9 latch) */
+    spi2_init(4);  
+    LOG("SPI2 initialized\r\n");
+	/* Init LCD */
+    lcd_init();
+    LOG("LCD initialized\r\n");
+    /* Clear screen */
+    lcd_clear();
+    LOG("LCD cleared\r\n");
+    /* Print test message */
+    lcd_printf(0, 0, "%s", "Hello World!");
+    LOG("Printed 'Hello World!' to LCD\r\n");
 #endif
+
 	LOG("Initialization Complete\r\n");
 	
     /* Loop forever */

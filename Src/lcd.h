@@ -2,77 +2,66 @@
  ******************************************************************************
  * @file           : lcd.h
  * @author         : Muthuu SVS
- * @brief          : public driver to control HD44780 compatible LCDs
- * references     : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
+ * @brief          : 4-bit HD44780 LCD driver over SPI2 + 74HC595
  ******************************************************************************
  */
 
 #ifndef LCD_H
 #define LCD_H
-#include "spi.h"//spi2 control and chip select struct
+
 #include <stdint.h>
 
-//LCD dimensions
-#define LCD_COLUMNS (16U)
-#define LCD_ROWS (2U)
-
-/* prints the formatted string to the lcd
- * @param const char *format, formatted string to send
- * @return none
- * Reference : 
- * https://stackoverflow.com/questions/11302393/creating-a-customised-version-of-printf
- */
-void lcd_printf(const char *format, ...);
-
-/* initializes the lcd
+/* Initialize the HD44780-compatible LCD connected via 74HC595
+ * Performs the startup sequence in 4-bit mode and configures display options
  * @param none
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
 void lcd_init(void);
 
-/* clears the lcd display
- * @param none
+/* Write a command byte to the LCD (RS = 0)
+ * @param cmd: command byte to send
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
-void lcd_clear(void);
+void lcd_write_cmd(uint8_t cmd);
 
-/* homes the lcd cursor
- * @param none
+/* Write a data byte to the LCD (RS = 1)
+ * @param data: data byte (character) to display
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
-void lcd_home(void);
+void lcd_write_data(uint8_t data);
 
-/* sets the lcd cursor position
- * @param uint8_t col, column (0 to LCD_COLUMNS-1)
- * @param uint8_t row, row (0 to LCD_ROWS-1)
+/* Write a null-terminated string to the LCD at current cursor
+ * @param str: pointer to NUL-terminated string
  * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_set_cursor(uint8_t col, uint8_t row);
-
-/* writes a character to the lcd
- * @param char c, character to send
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
- */
-void lcd_write_char(char c);
-
-/* writes a string to the lcd
- * @param const char *str, pointer to null-terminated string to send
- * @return none
- * Reference : https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
- * https://github.com/omersiar/ShiftedLCD
  */
 void lcd_write_string(const char *str);
 
+/* Set LCD cursor position
+ * @param row: LCD row (0-based)
+ * @param col: LCD column (0-based)
+ * @return none
+ */
+void lcd_set_cursor(uint8_t row, uint8_t col);
 
-#endif /* LCD_H_ */
+/* Clears the LCD and resets cursor to (0,0)
+ * @param none
+ * @return none
+ */
+void lcd_clear(void);
+
+/* Moves LCD cursor to home position (0,0) without clearing RAM
+ * @param none
+ * @return none
+ */
+void lcd_home(void);
+
+/* Formatted print into LCD (safe, bounds-checked)
+ * @param row LCD row (0 or 1)
+ * @param col LCD column (0-15)
+ * @param fmt printf-style format string
+ * @return none
+ */
+void lcd_printf(uint8_t row, uint8_t col, const char *fmt, ...);
+
+
+#endif /* LCD_H */
