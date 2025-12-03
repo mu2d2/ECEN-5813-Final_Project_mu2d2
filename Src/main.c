@@ -21,6 +21,8 @@
 #include "state_machine.h"//state_machine control of Application
 #include "log.h"//debug 
 #include "adc.h"//adc control
+#include "spi.h"//spi control for lcd
+#include "lcd.h"//lcd control commands
 
 /* Test includes */
 #include "test/test_pwm.h"
@@ -52,6 +54,20 @@ int main(void)
 	init_systick();
 	soil_sensor_init();//adc hardware init and gpio init for soil moisture sensor
 	set_uled(OFF);
+#ifdef LCD
+    LOG("Initializing LCD\r\n");
+    //Init SPI2 (PC3 MOSI, PB10 SCK, PC9 latch)
+    spi2_init(4); //clk divider of 4 to get to 48/4 to 12 
+    LOG("SPI2 initialized\r\n");
+	//Init LCD
+    lcd_init();
+    LOG("LCD initialized\r\n");
+    //Clear screen
+    lcd_clear();
+    lcd_printf(0, 0, "%s", "Hello World!");
+    LOG("Printed 'Hello World!' to LCD\r\n");
+#endif
+
 	LOG("Initialization Complete\r\n");
 	
 #ifdef RUN_TESTS

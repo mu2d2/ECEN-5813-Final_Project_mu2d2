@@ -120,3 +120,34 @@ ticktime_t get_timer(uint8_t timer)
     }
     
 }
+
+/*
+* delays for a specified number of milliseconds
+* @param uint32_t ms, number of milliseconds to delay
+* @return none
+* Reference:
+*/
+void delay_ms(uint32_t ms)
+{
+    while (ms--)
+    {
+        delay_us(1000U);
+    }
+
+}
+
+/* hard spin loop
+* delays for a specified number of microseconds
+* @param uint32_t us, number of microseconds to delay
+* @return none
+* Reference:
+*/
+void delay_us(uint32_t us)
+{
+	// ~48 cycles per microsecond   (approx for 48 MHz)
+	// Loop is ~4 cycles, so multiply by 12
+	for (uint32_t i = 0; i < (us * 12U); i++)
+	{
+		__asm volatile ("nop");
+	}
+}

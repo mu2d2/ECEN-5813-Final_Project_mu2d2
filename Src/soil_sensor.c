@@ -1,6 +1,6 @@
 /**
  ******************************************************************************
- * @file           : soil_sensor.h
+ * @file           : soil_sensor.c
  * @author         : Muthuu SVS
  * @brief          : functions that control power initialization and reading values
  *                   for Soil Moisture Sensor such that sensor corrosion is minimized,
