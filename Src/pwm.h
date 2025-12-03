@@ -59,5 +59,10 @@ void init_PWM_SERVO(void);
  */
 void servo_set_angle(uint16_t angle);
 
+/* converts angle to ccr value for servo positioning
+ * @param uint16_t angle desired angle between 0 and 270 degrees
+ * @return uint16_t converted ccr value for servo positioning
+ */
+uint16_t servo_angle_to_ccr(uint16_t angle);
 
 #endif

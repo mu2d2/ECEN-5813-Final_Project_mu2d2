@@ -21,8 +21,9 @@
 
 #define UNUSED(X)  (void)X
 
-//error
-#define ERROR (0xFFFFFFFFU)
+
+// Universal 16-bit error 
+#define ERROR_CODE (0xFFFFU)
 
 //LED STATES
 #define ON (1U)

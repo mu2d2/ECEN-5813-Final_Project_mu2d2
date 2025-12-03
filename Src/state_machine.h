@@ -10,10 +10,16 @@
 #define STATE_MACHINE_H
 #include "log.h"//debug 
 
-//normal sample rate: every 60 seconds
-
+//normal sample rate: every 30 seconds
 //watering sample rate every 300-500ms its a small plant
-
+//should never reach dying of thirst levels
+//too much water is also bad
+//ideal is approx wet range
+//calibrated thresholds based on real life values
+#define DYING_OF_THIRST_THRESHOLD        (500)//Bone dry soil
+#define DRY_THRESHOLD                    (1000)//acceptable   
+#define WET_THRESHOLD                    (2100)//Damp soil after watering
+#define SOAKING_THRESHOLD                (2800)//PURE Water Calibration
 
 //states for watering state machine
 typedef enum {

@@ -11,18 +11,11 @@
 #include "pwm.h"//for setting uled access and servo control
 #include "soil_sensor.h"//for soil sensor state machine
 #include "log.h"//debug
+#include "utilities.h" // for ERROR_CODE
 
 //servo defines
 #define SERVO_OPEN_ANGLE     (270)
 #define SERVO_CLOSED_ANGLE   (0)
-
-//should never reach dying of thirst levels
-//too much water is also bad
-//ideal is approx wet range
-#define DYING_OF_THIRST_THRESHOLD        (500)//Bone dry soil
-#define DRY_THRESHOLD                    (1000)//acceptable   
-#define WET_THRESHOLD                    (2100)//Damp soil after watering
-#define SOAKING_THRESHOLD                (2800)//PURE Water Calibration
 
 #define IDLE_SAMPLE_PERIOD_MS    (30000)   // 30 sec rate
 #define WATER_SAMPLE_PERIOD_MS   (300)     // 30 ms rate fast sampling while watering
@@ -139,6 +132,15 @@ void water_fsm_run(void)
         case WATER_DECIDE:
         {
             uint16_t raw = soil_sensor_get_raw(); //gets value
+            if (raw == ERROR_CODE)
+            {
+                LOG("ADC Error: invalid soil reading; scheduling retry\r\n");
+                schedule_next_sample(IDLE_SAMPLE_RATE_ID);
+                prev = state;
+                state = WATER_IDLE;
+                LOG("Transition: %s -> %s\r\n", water_state_to_string(prev), water_state_to_string(state));
+                break;
+            }
             LOG("Soil Reading: %u\r\n", raw);
 
             //extreme values
@@ -180,6 +182,15 @@ void water_fsm_run(void)
             if (soil_sensor_is_ready()) //check if soil ready for measurement
             {
                 uint16_t raw = soil_sensor_get_raw();
+                if (raw == ERROR_CODE)
+                {
+                    LOG("ADC Error: invalid soil reading during watering; aborting and scheduling retry\r\n");
+                    schedule_next_sample(IDLE_SAMPLE_RATE_ID);
+                    prev = state;
+                    state = WATER_IDLE;
+                    LOG("Transition: %s -> %s\r\n", water_state_to_string(prev), water_state_to_string(state));
+                    break;
+                }
                 LOG("Watering reading: %u\r\n", raw); //print soil measurement while measuring
 
                 if (raw > WET_THRESHOLD) //when wet, stop watering
