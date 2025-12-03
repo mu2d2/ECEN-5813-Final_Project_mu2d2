@@ -11,6 +11,7 @@
 #include "pwm.h"//for setting uled access and servo control
 #include "soil_sensor.h"//for soil sensor state machine
 #include "log.h"//debug
+#include "lcd.h"//for displaying results on lcd screen
 #include "utilities.h" // for ERROR_CODE
 
 //servo defines
@@ -18,7 +19,8 @@
 #define SERVO_CLOSED_ANGLE   (0)
 
 #define IDLE_SAMPLE_PERIOD_MS    (30000)   // 30 sec rate
-#define WATER_SAMPLE_PERIOD_MS   (300)     // 30 ms rate fast sampling while watering
+#define WATER_SAMPLE_PERIOD_MS   (300)     // 300 ms rate fast sampling while watering
+#define LCD_UPDATE_PERIOD_MS     (1000)    // 1 sec rate for LCD display refresh (human-readable)
 
 //Sample rate identifiers matches the periods
 #define IDLE_SAMPLE_RATE_ID (0) 
@@ -28,6 +30,7 @@
 static water_state_t state;//cur state
 static water_state_t prev;//prev state
 static ticktime_t next_sample_time;//next time to sample soil
+static ticktime_t next_lcd_update_time;//next time to update LCD display
 
 /* Helper function to get textual name for states for logging
  * @param none 
@@ -66,6 +69,35 @@ const char* water_state_to_string(water_state_t state)
     }
 }
 
+/* Map raw ADC soil reading to a human-readable moisture level string
+ * @param raw: raw ADC value (0..4095)
+ * @return pointer to constant string describing moisture level
+ */
+static const char* soil_level_to_string(uint16_t raw)
+{
+    if (raw == ERROR_CODE)
+    {
+        return "ADC ERROR       ";  // 16 chars: padded to fill full LCD line
+    }
+    if (raw < DYING_OF_THIRST_THRESHOLD)
+    {
+        return "CRITICAL DRY    ";  // 16 chars
+    }
+    if (raw < DRY_THRESHOLD)
+    {
+        return "DRY             ";  // 16 chars
+    }
+    if (raw < WET_THRESHOLD)
+    {
+        return "MOIST           ";  // 16 chars
+    }
+    if (raw < SOAKING_THRESHOLD)
+    {
+        return "WET             ";  // 16 chars
+    }
+    return "SOAKING         ";  // 16 chars
+}
+
 /*
  * Schedule next sample time using one of two predefined intervals.
  * @param rate: WATERING_SAMPLE_RATE_ID to use WATER_SAMPLE_PERIOD_MS
@@ -97,6 +129,8 @@ void water_fsm_init(void)
     LOG("Transition: %s -> %s\r\n", "UNKNOWN", water_state_to_string(state));
     // schedule initial idle sample
     schedule_next_sample(IDLE_SAMPLE_RATE_ID);
+    // Initialize LCD update timer
+    next_lcd_update_time = now();
     servo_set_angle(SERVO_CLOSED_ANGLE);
 }
 
@@ -108,7 +142,9 @@ void water_fsm_init(void)
 void water_fsm_run(void)
 {
     ticktime_t current = now(); //gets current time
+#ifdef DEBUG
     water_state_t prev = state; // shared previous-state variable for logging
+#endif
 
     switch (state) //state machine branch
     {
@@ -135,6 +171,9 @@ void water_fsm_run(void)
             if (raw == ERROR_CODE)
             {
                 LOG("ADC Error: invalid soil reading; scheduling retry\r\n");
+                /* Update LCD to indicate ADC error */
+                lcd_printf(0, 0, "ADC ERROR       ");
+                lcd_printf(1, 0, "----            ");
                 schedule_next_sample(IDLE_SAMPLE_RATE_ID);
                 prev = state;
                 state = WATER_IDLE;
@@ -142,6 +181,10 @@ void water_fsm_run(void)
                 break;
             }
             LOG("Soil Reading: %u\r\n", raw);
+            /* Display moisture level and raw value on LCD (always update on decision) */
+            lcd_printf(0, 0, "%s", soil_level_to_string(raw));
+            /* Ensure raw value overwrites prior contents by padding */
+            lcd_printf(1, 0, "Raw:%4u       ", raw);
 
             //extreme values
             if (raw < DYING_OF_THIRST_THRESHOLD)
@@ -185,6 +228,9 @@ void water_fsm_run(void)
                 if (raw == ERROR_CODE)
                 {
                     LOG("ADC Error: invalid soil reading during watering; aborting and scheduling retry\r\n");
+                    /* Update LCD to indicate ADC error */
+                    lcd_printf(0, 0, "ADC ERROR       ");
+                    lcd_printf(1, 0, "----            ");
                     schedule_next_sample(IDLE_SAMPLE_RATE_ID);
                     prev = state;
                     state = WATER_IDLE;
@@ -193,9 +239,21 @@ void water_fsm_run(void)
                 }
                 LOG("Watering reading: %u\r\n", raw); //print soil measurement while measuring
 
+                /* Update LCD with current level + raw value while watering (throttled to 1 sec) */
+                ticktime_t current = now();
+                if (current >= next_lcd_update_time)
+                {
+                    lcd_printf(0, 0, "%s", soil_level_to_string(raw));
+                    lcd_printf(1, 0, "Raw:%4u       ", raw);
+                    next_lcd_update_time = current + (LCD_UPDATE_PERIOD_MS / TICKTIME_MS);
+                }
+
                 if (raw > WET_THRESHOLD) //when wet, stop watering
                 {
                     LOG("Soil is wet -> stopping water\r\n");
+                    /* Force final LCD update on threshold crossing (bypass throttle) */
+                    lcd_printf(0, 0, "%s", soil_level_to_string(raw));
+                    lcd_printf(1, 0, "Raw:%4u       ", raw);
                     prev = state;
                     state = WATER_CLOSE_VALVE;
                     LOG("Transition: %s -> %s\r\n", water_state_to_string(prev), water_state_to_string(state));

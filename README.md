@@ -2,6 +2,27 @@
 
 Automatic plant watering system using an STM32F091RC microcontroller. The system monitors soil moisture via an ADC resistive sensor and controls a servo-actuated water valve based on moisture thresholds.
 
+## Documentation & Media
+
+The **Images_Videos** folder contains photos and videos documenting various stages of implementation, including:
+- Assembly and component integration photos
+- Sensor calibration and testing procedures
+- Servo valve actuation tests
+- LCD display output verification
+- Final system demonstration video showing the complete watering cycle in operation
+
+Refer to these media files for visual reference during hardware setup and debugging.
+
+## Scope & Limitations
+
+Due to time, complexity, and debugging constraints, the following items were eliminated from the project scope:
+
+**Mechanical Design (Servo Forward):** The mechanical design from the servo actuator forward (valve linkage, plumbing integration, enclosure) remains incomplete. The software successfully demonstrates servo control and angle ramping, but final mechanical implementation for field deployment was deferred. Manual watering was used instead when servo moved to open and closed angles to imitate mechanical design.
+
+**FreeRTOS Scheduling:** Real-time operating system integration was initially considered but removed from scope. The current implementation uses a cooperative bare-metal state machine with non-blocking polling, which provides sufficient responsiveness for the watering application while maintaining simplicity and predictability for debugging.
+
+These trade-offs prioritized core sensor integration, display output, and robust state management over advanced scheduling and mechanical packaging.
+
 ## Overview
 
 **Target Hardware:**
@@ -22,6 +43,20 @@ Automatic plant watering system using an STM32F091RC microcontroller. The system
 - 20Kg torque, 5V DC servo 
 - 0 - 270 degree range
 
+**Shift Register (74HC595):**
+- Datasheet & Order Link: https://www.ti.com/product/SN74HC595
+    - https://www.ti.com/lit/ds/symlink/sn74hc595.pdf
+- 8-bit serial-in, parallel-out shift register
+- 5V or 3.3V operation (verify logic levels with LCD)
+- Expands MCU I/O: 3 SPI pins (MOSI, SCK, RCLK) drive 8 parallel outputs to LCD control/data lines
+
+**LCD Screen (HD44780-compatible):**
+- Datasheet & Order Link: https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
+- 16x2 character LCD display (typical)
+- HD44780 controller, 4-bit or 8-bit interface mode
+- 5V or 3.3V operation (verify voltage compatibility with 74HC595 and MCU)
+- Operated in 4-bit mode: DB4..DB7 for data, RS for register select, E for enable 
+
 **Key Features:**
 - Non-blocking soil moisture measurement with power-gating to reduce sensor corrosion
 - Servo-controlled water valve with smooth angle ramping
@@ -38,6 +73,7 @@ main.c (Application Entry)
     ├── init_uled() / set_uled()           [pwm.c]        (Heartbeat LED)
     ├── init_PWM_SERVO()                   [pwm.c]        (Servo PWM init)
     ├── init_systick()                     [timers.c]     (Millisecond tick)
+    ├── lcd_init()                         [lcd.c]        (LCD init via spi/74HC595)
     ├── soil_sensor_init()                 [soil_sensor.c]
     │   ├── init_ADC()                     [adc.c]        (ADC peripheral init)
     │   └── init_soil_sensor_power()       [soil_sensor.c](GPIO for power control)
@@ -50,6 +86,7 @@ main.c (Application Entry)
         ├── water_fsm_run()                 [state_machine.c]
         │   ├── soil_sensor_get_raw()       [soil_sensor.c](Query measurement)
         │   ├── servo_set_angle()           [pwm.c]       (Actuate valve)
+        │   ├── lcd_printf()                [lcd.c]       (Display level/raw)
         │   └── LOG()                       [log.h]       (Debug output)
         │
         └── heartbeat_led()                 [main.c]      (Blink indicator)
@@ -117,6 +154,71 @@ main.c (Application Entry)
 
 **Dependencies:**
 - `utilities.h` (for `MODIFY_FIELD`, `ON`, `OFF`)
+
+#### **spi.c / spi.h**
+**Purpose**: Bit-banged / register-configured SPI2 driver used to drive a chain of `74HC595` shift registers which in turn control the HD44780-compatible LCD.
+
+**Hardware & Pinout:**
+- `PC3` = MOSI (AF1) → serial data into first `74HC595` (DS)
+- `PB10` = SCK  (AF5) → shift clock (SHCP)
+- `PC9` = RCLK (GPIO output) → latch clock (RCLK) for 74HC595 outputs
+
+**Key Functions:**
+- `spi2_init(uint8_t clk_prescaler)` — Configures GPIO alternate functions and SPI2 peripheral (master mode, prescaler). The code sets MOSI and SCK alternate functions and configures PC9 as a GPIO latch output.
+- `spi2_write(uint8_t data)` — Writes one byte to SPI2 and waits until the transfer completes.
+- `spi2_write_buffer(const uint8_t *data, uint16_t length)` — Writes a byte buffer via repeated `spi2_write()` calls.
+- `spi2_latch()` — Toggles the `RCLK` output (PC9) to move shifted bits from the shift register internal storage to the output pins.
+
+**Design Notes / Datasheet Impact:**
+- The project uses an off-chip `74HC595` (8-bit serial-in, parallel-out shift register) to expand MCU outputs with only three MCU pins. TI SN74HC595 datasheet: https://www.ti.com/product/SN74HC595
+- `74HC595` timing requires brief delays around latch transitions; `spi2_latch()` performs small `NOP` delays to satisfy timing.
+- Since the MCU is 3.3V and many shift registers / LCDs are 5V, confirm voltage-level compatibility. Many HC-family parts recognize 3.3V as a logic-high when powered from 5V, but for robust operation use level shifting or power the `74HC595` at 3.3V and the LCD with a common Vcc if acceptable.
+- The SPI driver is minimal and poll-based (no DMA or interrupts) to keep code simple and deterministic.
+
+**Dependencies:**
+- `log.h` (for debug messages)
+- `utilities.h` macros for GPIO configuration
+
+#### **Shift Register: 74HC595**
+**Purpose**: Expand MCU outputs to drive the HD44780 LCD control and data lines using a single SPI chain.
+
+**Wiring (project mapping):**
+```
+74HC595 Qh Qg Qf Qe | Qd Qc Qb Qa
+    DB7 DB6 DB5 DB4 |  E  RS  x  x
+```
+- `Qa..Qh` are the parallel outputs of the shift register; `Qe..Qh` are mapped to DB4..DB7 of the LCD and `Qc`/`Qd` map to `RS` and `E` respectively. See `Src/lcd.c` for exact bit masks.
+
+**Datasheet & Notes:**
+- TI SN74HC595 datasheet: https://www.ti.com/product/SN74HC595
+- Ensure the `74HC595` Vcc and the LCD Vcc are compatible with MCU logic levels. If the 74HC595 and LCD are powered at 5V, consider using a level shifter on SPI lines or verify Vih threshold compatibility in the datasheet.
+
+#### **lcd.c / lcd.h**
+**Purpose**: HD44780-compatible 4-bit LCD driver implemented over a `74HC595` chain driven by `spi2`.
+
+**Hardware:**
+- HD44780-style character LCD (16x2 typical) powered at 5V or 3.3V. Data lines DB4..DB7, E and RS are wired to `74HC595` outputs as described above.
+- The MCU shifts the 8-bit pattern into the `74HC595` via `spi2_write()` and then pulses `RCLK`/latch to present the outputs before toggling `E` to latch the LCD nibble.
+
+**Key Functions:**
+- `lcd_init()` — Runs HD44780 initialization sequence (power-up wait, 8-bit sequence, switch to 4-bit mode, function set, display on/off, clear, entry mode).
+- `lcd_write_cmd(uint8_t cmd)` — Sends a command byte (RS=0) as two 4-bit transfers via shift register.
+- `lcd_write_data(uint8_t data)` — Sends a data byte (RS=1) as two 4-bit transfers.
+- `lcd_set_cursor(uint8_t row, uint8_t col)` — Positions DDRAM address for subsequent writes.
+- `lcd_printf(uint8_t row, uint8_t col, const char *fmt, ...)` — Safe, bounded printf helper for writing text to the display.
+
+**Design Notes / Datasheet Impact:**
+- The HD44780 controller expects specific timing for enable (E) pulses and commands; `lcd_pulse_enable()` and `delay_us()` calls satisfy those timing constraints.
+- HD44780 datasheet / command reference: https://www.sparkfun.com/datasheets/LCD/HD44780.pdf
+- Because the LCD is driven through a shift register, the code performs a full `spi2_write()` + `spi2_latch()` before toggling E. This sequencing is necessary to ensure the correct signals appear on the parallel outputs when `E` transitions.
+
+**Wiring Diagram**
+- ![alt text](Images_Videos/ShiftRegister_LCD_Wiring_Diagram.jpg)
+
+**Dependencies:**
+- `spi.h` (for `spi2_write` and `spi2_latch`)
+- `timers.h` (for millisecond/us delays)
+- `log.h` (for debug output)
 
 #### **state_machine.c / state_machine.h**
 **Purpose**: Main application logic. FSM controls watering decisions based on soil moisture thresholds.
@@ -243,6 +345,55 @@ All tests reside in `Src/test/` with matching module structure:
 - 7 state name tests: Validates `water_state_to_string()` enum conversion.
 - 4 threshold tests: Validates `DRY_THRESHOLD`, `WET_THRESHOLD`, etc. constants.
 - **No hardware required** (pure logic test).
+
+
+### SPI & LCD Hardware Integration Testing
+
+**Why Hardware Testing Matters:**
+- Unit tests for SPI and LCD only validate symbol presence; they do not verify:
+  - SPI clock/data signal integrity or timing compliance
+  - 74HC595 shift register latch/reset sequencing
+  - HD44780 enable pulse timing and command acknowledgment
+  - Voltage level compatibility between 3.3V MCU and 5V shift register/LCD
+
+**Prerequisites:**
+- Oscilloscope (minimum 1 MHz bandwidth; 2+ channels ideal) to monitor SPI signals
+- 74HC595 and LCD connected to the MCU as described in the module sections
+- SPI bus (PC3=MOSI, PB10=SCK, PC9=RCLK) accessible for probing
+
+**SPI Signal Verification:**
+1. **Compile and flash firmware with SPI and LCD initialized but main loop disabled** (or modify `main.c` to call `lcd_init()` once and hang).
+2. **Probe SPI lines with oscilloscope:**
+4. **Verify timing**:
+   - SCK frequency matches `spi2_init()` prescaler (e.g., prescaler=7 → ~48MHz/128 ≈ 375 kHz)
+   - RCLK pulse width > 10ns, setup/hold times met
+
+**LCD Display Verification:**
+1. **Run the firmware normally** (with SPI/LCD initialized) and wait for `lcd_init()` to complete (~50ms).
+2. **Observe LCD display**:
+   - Display should show a clear screen (or previous content erased).
+   - No garbage characters or flickering.
+3. **During watering cycle**:
+   - LCD line 1 should display the moisture level (e.g., "DRY", "MOIST", "WET", "SOAKING").
+   - LCD line 2 should display the raw ADC value (e.g., "Raw:1234       ").
+   - Updates should occur every 300ms (during watering) or 30s (idle).
+4. **Test edge cases**:
+   - ADC error → LCD shows "ADC ERROR" / "----"
+   - Long text wrapping → verify text does not overflow past column 15
+
+**Oscilloscope Debugging Checklist:**
+- [ ] SPI clock frequency within spec (prescaler dependent)
+- [ ] MOSI data bits toggle correctly during each transfer
+- [ ] RCLK pulse occurs after every 8 SCK edges
+- [ ] No timing violations (setup/hold for 74HC595)
+- [ ] Voltage levels: 3.3V high, 0V low (or use level shifter if 5V logic required)
+- [ ] No ringing or overshoot on rising/falling edges
+
+**Common Issues:**
+- **LCD shows garbage or partial display**: Check SPI waveforms for correct bit patterns; verify 74HC595 Vcc/GND and load capacitors (0.1µF recommended).
+- **LCD not updating**: Check RCLK timing; ensure pulse is >10ns wide and occurs after every byte.
+- **Servo moving but LCD blank**: Verify PC9 RCLK output is toggling via oscilloscope; check 74HC595 enable (OE) pin pulled low.
+- **Intermittent display corruption**: May indicate voltage marginal or noise coupling; add decoupling caps (0.1µF on each IC supply pin).
 
 ### Running Tests
 
