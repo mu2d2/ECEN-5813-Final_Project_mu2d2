@@ -22,9 +22,14 @@
  */
 void init_ADC(void);
 
+/* Returns whether ADC was initialized successfully
+ * @return non-zero if initialized, zero otherwise
+ */
+uint8_t adc_initialized(void);
+
 /* returns the latest soil moisture sensor value
  * @param none 
- * @return uint16_t soil_moisture_value
+ * @return uint16_t soil_moisture_value or ERROR_CODE on failure
  * Reference : 
  */
 uint16_t adc_manual_sample(void);

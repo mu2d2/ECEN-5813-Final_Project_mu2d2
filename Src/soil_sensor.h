@@ -63,4 +63,10 @@ uint16_t soil_sensor_get_raw(void);
  */
 uint8_t  soil_sensor_get_percent(void);
 
+/* converts raw ADC value to percentage based on calibration sensor values
+ * @param raw ADC value
+ * @return percentage moisture (0-100)
+ */
+uint8_t soil_raw_to_pct(uint16_t raw);
+
 #endif

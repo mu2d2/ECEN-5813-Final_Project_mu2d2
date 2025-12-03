@@ -24,9 +24,19 @@
 #include "spi.h"//spi control for lcd
 #include "lcd.h"//lcd control commands
 
-//#define SERVO
-//#define SOIL_SENSOR
-#define LCD
+/* Test includes */
+#include "test/test_pwm.h"
+#include "test/test_soil_sensor.h"
+#include "test/test_adc.h"
+#include "test/test_state_machine.h"
+
+//#define RUN_TESTS
+
+/* 1 second interval led flash to show that loop is working
+ * @param none 
+ * @return none
+ */
+void heartbeat_led(void);
 
 int main(void)
 {
@@ -36,7 +46,7 @@ int main(void)
 	 * the ST-Link COM port setting.
 	 * Clocks: Processor = 48 Mhz. AHB = 48 MHz. APB = 24 MHz.
 	 */
-	LOG("Hello World!\r\n");
+	LOG("\r\nAutomatic Watering Plant System!\r\n");
 
 	/* Initialization */
 	init_uled();
@@ -60,75 +70,56 @@ int main(void)
 
 	LOG("Initialization Complete\r\n");
 	
+#ifdef RUN_TESTS
+	/* Run unit tests if enabled */
+	LOG("\r\n========== RUNNING UNIT TESTS ==========\r\n");
+	int test_result = 0;
+	test_result |= test_pwm();
+	test_result |= test_soil_sensor();
+	test_result |= test_adc();
+	test_result |= test_state_machine();
+	LOG("\r\n========== UNIT TESTS COMPLETE ==========\r\n");
+	if (test_result == 0)
+	{
+		LOG("All tests PASSED!\r\n");
+		set_uled(ON);
+	}
+	else
+	{
+		LOG("Some tests FAILED!\r\n");
+	}
+	//in case tests fail dont want to potentially break hardware
+	return test_result;
+#endif
+    
     /* Loop forever */
 	LOG("Main Loop Starting\r\n");
 	reset_timer(TIMER_START_ID);//starts timer
 	reset_timer(TIMER_START_ULED_ID);//starts timer
 	reset_timer(TIMER_SOIL_SAMPLING_ID);//starts timer
-	uint8_t blink = 0;
-#ifdef SERVO
-	uint8_t test  = 0;
-#endif
-#ifdef SOIL_SENSOR
-	uint16_t adc_value = 0;
-	uint16_t last_raw = 0;
-    uint8_t  last_pct = 0;
 	soil_sensor_begin_measurement();//start first measurement
-#endif
-	ticktime_t local_timer_heartbeat = 0;
 	for(;;)
 	{
-		//heartbeat uled every second
-		local_timer_heartbeat = get_timer(TIMER_START_ULED_ID);
-		if(local_timer_heartbeat >= ONE_SECOND_TICKS)//1second interrupt
-		{
-			blink = !blink;//toggle uled flag
-			reset_timer(TIMER_START_ULED_ID);//reset timer reference
-			set_uled(blink);//toggle uled flag
-		}
-		/*
-		
-		
-		
-		
-		*/
-#ifdef SOIL_SENSOR
-		soil_measure_fsm();//run soil sensor state machine
-		if(soil_sensor_is_ready())
-		{
-			//new data available
-			adc_value = soil_sensor_get_raw();
-			if(adc_value != last_raw)//if didn't change, don't log
-			{
-				last_raw = adc_value;
-				last_pct = soil_sensor_get_percent();
-				LOG("Soil Moisture: Raw=%u, Percent=%u%%\r\n", last_raw, last_pct);
-			}
-			soil_sensor_begin_measurement();//start next measurement
-		}
-#endif
-		/*
-		
-		
-		
-		
-		*/
-#ifdef LCD
+		soil_measure_fsm();//toggles power to the soil sensor based on state
+		water_fsm_run();//watering fsm controls watering service
+		heartbeat_led();//heartbeat_led to visually see if something critical is wrong
+	}
+}
 
-
-#endif
-		/*
-		
-		
-		
-		
-		*/
-#ifdef SERVO
-		if(!test)
-		{
-			servo_set_angle(270);
-			test = !test;
-		}
-#endif
+/* 1 second interval led flash to show that loop is working
+ * @param none 
+ * @return none
+ */
+void heartbeat_led(void)
+{
+	static ticktime_t timer_heartbeat;
+	static uint8_t blink = 0;
+	//heartbeat uled every second
+	timer_heartbeat = get_timer(TIMER_START_ULED_ID);
+	if(timer_heartbeat >= ONE_SECOND_TICKS)//1second interrupt
+	{
+		blink = !blink;//toggle uled flag
+		reset_timer(TIMER_START_ULED_ID);//reset timer reference
+		set_uled(blink);//toggle uled flag
 	}
 }
