@@ -28,7 +28,7 @@
 #include "test/test_adc.h"
 #include "test/test_state_machine.h"
 
-#define RUN_TESTS
+//#define RUN_TESTS
 
 /* 1 second interval led flash to show that loop is working
  * @param none 

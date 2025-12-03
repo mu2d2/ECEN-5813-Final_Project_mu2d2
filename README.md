@@ -9,6 +9,19 @@ Automatic plant watering system using an STM32F091RC microcontroller. The system
 - **Build Tool**: STM32CubeIDE with GNU Make
 - **Serial Output**: 9600 baud (8-N-1) for debug logging
 
+**Soil Moisture Sensor:**
+- Analog Resistive soil moisture detection
+- 5V Input, 0-4.2V analog output
+- Datasheet & Order Link: https://www.digikey.com/en/products/detail/dfrobot/SEN0114/6588525
+    - https://mm.digikey.com/Volume0/opasdata/d220001/medias/docus/2280/SEN0114_Web.pdf
+- Calibrate Sensor values to your use case
+
+**Digital Servo:**
+- Datasheet & Order Link: https://www.amazon.com/Miuzei-Torque-Digital-Waterproof-Control/dp/B07HNTKSZT
+    - https://images-na.ssl-images-amazon.com/images/I/81Lbgu+nG6L.pdf
+- 20Kg torque, 5V DC servo 
+- 0 - 270 degree range
+
 **Key Features:**
 - Non-blocking soil moisture measurement with power-gating to reduce sensor corrosion
 - Servo-controlled water valve with smooth angle ramping
@@ -96,6 +109,7 @@ main.c (Application Entry)
 **Key Functions:**
 - `init_PWM_SERVO()` — Configures TIM3 for 50 Hz PWM, sets neutral position (1500 µs), enables interrupt.
 - `servo_set_angle(uint16_t angle)` — Updates target angle; TIM3 ISR smoothly ramps current angle toward target at `CCR_STEP_SIZE` (10 µs/tick).
+    - Smooth ramping (10 µs per 50 Hz tick) to prevent mechanical shock and water hammer
 - `servo_angle_to_ccr(uint16_t angle)` — Converts 0–270° angle to 500–2500 µs with clamping. **Used by tests.**
 - `init_uled()` — Configures PA5 as output.
 - `set_uled(uint8_t state)` — Sets LED on (1) or off (0).
