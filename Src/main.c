@@ -46,16 +46,14 @@ int main(void)
 	set_uled(OFF);
 #ifdef LCD
     LOG("Initializing LCD\r\n");
-    /* Init SPI2 (PC3 MOSI, PB10 SCK, PC9 latch) */
-    spi2_init(4);  
+    //Init SPI2 (PC3 MOSI, PB10 SCK, PC9 latch)
+    spi2_init(4); //clk divider of 4 to get to 48/4 to 12 
     LOG("SPI2 initialized\r\n");
-	/* Init LCD */
+	//Init LCD
     lcd_init();
     LOG("LCD initialized\r\n");
-    /* Clear screen */
+    //Clear screen
     lcd_clear();
-    LOG("LCD cleared\r\n");
-    /* Print test message */
     lcd_printf(0, 0, "%s", "Hello World!");
     LOG("Printed 'Hello World!' to LCD\r\n");
 #endif
