@@ -3,6 +3,7 @@
  * @file           : lcd.c
  * @author         : Muthuu SVS
  * @brief          : 4-bit HD44780 LCD driver over SPI2 + 74HC595
+ Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  ******************************************************************************
  */
 
@@ -83,6 +84,7 @@
  * requirements of HD44780 controllers are met.
  * @param data_byte: byte containing DB7-DB4, RS and E mapping
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_pulse_enable(uint8_t data_byte)
 {
@@ -96,6 +98,11 @@ void lcd_pulse_enable(uint8_t data_byte)
 }
 
 
+/* writes a nibble to the lcd screen
+ * @param nibble: number being written, rs: command or data mode
+ * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
+ */
 void lcd_write_nibble(uint8_t nibble, uint8_t rs)
 {
     uint8_t data = 0;
@@ -119,6 +126,7 @@ void lcd_write_nibble(uint8_t nibble, uint8_t rs)
  * Splits a byte into two 4-bit transfers (high nibble then low nibble)
  * @param cmd: command byte
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_write_cmd(uint8_t cmd)
 {
@@ -131,6 +139,7 @@ void lcd_write_cmd(uint8_t cmd)
 /* Write a single data byte (character) to the LCD
  * @param data: character to write
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_write_data(uint8_t data)
 {
@@ -144,6 +153,7 @@ void lcd_write_data(uint8_t data)
  * Performs the startup sequence in 4-bit mode and configures display options
  * @param none
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_init(void)
 {
@@ -196,10 +206,11 @@ void lcd_write_string(const char *str)
 }
 
 
-/* Set the cursor position on the LCD
- * @param row: 0-based row index
- * @param col: 0-based column index
+/* Set LCD cursor position
+ * @param row: LCD row (0-based)
+ * @param col: LCD column (0-based)
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_set_cursor(uint8_t row, uint8_t col)
 {
@@ -208,9 +219,10 @@ void lcd_set_cursor(uint8_t row, uint8_t col)
 }
 
 
-/* Clear the display and reset DDRAM address to 0
+/* Clears the LCD and resets cursor to (0,0)
  * @param none
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_clear(void)
 {
@@ -219,9 +231,10 @@ void lcd_clear(void)
 }
 
 
-/* Return cursor to home (0,0) without clearing display RAM
+/* Moves LCD cursor to home position (0,0) without clearing RAM
  * @param none
  * @return none
+ * Reference:  https://newhavendisplay.com/content/specs/NHD-0216HZ-FSW-FBW-33V3C.pdf
  */
 void lcd_home(void)
 {

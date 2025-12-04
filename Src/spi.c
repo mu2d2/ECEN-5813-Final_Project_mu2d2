@@ -25,9 +25,11 @@
 
 /* initializes SPI2 peripheral based on requested speed
  * PC3 = MOSI (AF1), PB10 = SCK (AF5)
- * also configures PB9 as RCLK latch for 74HC595
+ * also configures PC9 as RCLK latch for 74HC595
  * @param: clk_prescaler - clock prescaler value for SPI2 (0-7)
  * @return none
+ * Reference: Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Serial Communications, Page No. 249
+    RM0091 Reference Manual
  */
 void spi2_init(uint8_t clk_prescaler)
 {
@@ -90,6 +92,8 @@ void spi2_init(uint8_t clk_prescaler)
 /* writes 1 byte of data to SPI2 peripheral
  * @param data : byte to send
  * @return none
+ * Reference: Embedded Systems Fundamentals with Arm® Cortex®-M based Microcontroller, Chapter: 8 Serial Communications, Page No. 249
+    RM0091 Reference Manual
  */
 void spi2_write(uint8_t data)
 {
@@ -134,6 +138,7 @@ void spi2_write_buffer(const uint8_t *data, uint16_t length)
  * call after spi2_write() or spi2_write_buffer() to update outputs
  * @param none
  * @return none
+ * Reference: https://www.ti.com/lit/ds/symlink/sn74hc595.pdf
  */
 void spi2_latch(void)
 {
